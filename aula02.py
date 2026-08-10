@@ -53,6 +53,14 @@ def ler_notas():
     return notas
 
 
+def escrever_notas(notas):
+    # regrava o arquivo inteiro (usado ao editar ou excluir uma nota)
+    arquivo = open(ARQUIVO_NOTAS, "w", encoding="utf-8")
+    for nota in notas:
+        arquivo.write(nota["id_aluno"] + ";" + nota["disciplina"] + ";" + nota["nota"] + "\n")
+    arquivo.close()
+
+
 def buscar_aluno_por_id(id_aluno):
     for aluno in ler_alunos():
         if aluno["id"] == id_aluno:
@@ -222,6 +230,88 @@ def buscar_alunos_por_disciplina():
         print("Nenhum aluno encontrado nessa disciplina.")
 
 
+def editar_nota():
+    print("\n--- Editar nota ---")
+    nome = input("Nome do aluno: ").strip()
+    aluno = buscar_aluno_por_nome(nome)
+    if aluno is None:
+        print("Aluno nao encontrado.")
+        return
+    disciplina = input("Disciplina: ").strip()
+    notas = ler_notas()
+    encontradas = 0
+    for nota in notas:
+        if nota["id_aluno"] == aluno["id"] and nota["disciplina"].lower() == disciplina.lower():
+            encontradas = encontradas + 1
+    if encontradas == 0:
+        print("Nenhuma nota encontrada para esse aluno nessa disciplina.")
+        return
+    valor = input("Nova nota: ").strip().replace(",", ".")
+    try:
+        float(valor)
+    except ValueError:
+        print("Nota invalida. Digite um numero.")
+        return
+    for nota in notas:
+        if nota["id_aluno"] == aluno["id"] and nota["disciplina"].lower() == disciplina.lower():
+            nota["nota"] = valor
+    escrever_notas(notas)
+    print(str(encontradas) + " nota(s) atualizada(s) para " + aluno["nome"] + ".")
+
+
+def excluir_nota():
+    print("\n--- Excluir nota ---")
+    nome = input("Nome do aluno: ").strip()
+    aluno = buscar_aluno_por_nome(nome)
+    if aluno is None:
+        print("Aluno nao encontrado.")
+        return
+    disciplina = input("Disciplina: ").strip()
+    notas = ler_notas()
+    restantes = []
+    removidas = 0
+    for nota in notas:
+        if nota["id_aluno"] == aluno["id"] and nota["disciplina"].lower() == disciplina.lower():
+            removidas = removidas + 1
+        else:
+            restantes.append(nota)
+    if removidas == 0:
+        print("Nenhuma nota encontrada para esse aluno nessa disciplina.")
+        return
+    confirmacao = input("Confirmar exclusao de " + str(removidas) + " nota(s)? (s/n): ").strip().lower()
+    if confirmacao != "s":
+        print("Exclusao cancelada.")
+        return
+    escrever_notas(restantes)
+    print(str(removidas) + " nota(s) excluida(s).")
+
+
+def buscar_notas_acima_de():
+    print("\n--- Alunos com nota acima de um valor ---")
+    valor = input("Valor minimo: ").strip().replace(",", ".")
+    try:
+        minimo = float(valor)
+    except ValueError:
+        print("Valor invalido. Digite um numero.")
+        return
+    achou = False
+    for nota in ler_notas():
+        if float(nota["nota"]) > minimo:
+            # a nota guarda so o ID, entao buscamos o nome em alunos.txt
+            aluno = buscar_aluno_por_id(nota["id_aluno"])
+            if aluno is None:
+                print("Nota com ID " + nota["id_aluno"] + " sem aluno correspondente.")
+            else:
+                print(
+                    "Aluno: " + aluno["nome"]
+                    + " | Disciplina: " + nota["disciplina"]
+                    + " | Nota: " + nota["nota"]
+                )
+            achou = True
+    if not achou:
+        print("Nenhuma nota acima de " + format(minimo, ".2f") + ".")
+
+
 def mostrar_menu():
     print("\n===== SISTEMA ACADEMICO =====")
     print("1 - Cadastrar aluno")
@@ -232,6 +322,9 @@ def mostrar_menu():
     print("6 - Listar todas as notas de um aluno")
     print("7 - Calcular media de um aluno")
     print("8 - Buscar alunos por disciplina")
+    print("9 - Editar uma nota")
+    print("10 - Excluir uma nota")
+    print("11 - Buscar alunos com nota acima de um valor")
     print("0 - Sair")
 
 
@@ -255,6 +348,12 @@ def main():
             calcular_media()
         elif opcao == "8":
             buscar_alunos_por_disciplina()
+        elif opcao == "9":
+            editar_nota()
+        elif opcao == "10":
+            excluir_nota()
+        elif opcao == "11":
+            buscar_notas_acima_de()
         elif opcao == "0":
             print("Encerrando o programa.")
             break

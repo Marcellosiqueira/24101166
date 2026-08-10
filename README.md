@@ -34,15 +34,20 @@ python aula02.py
 
 O programa abre um menu em loop com as opções:
 
-1. Cadastrar aluno (não permite ID duplicado)
-2. Listar alunos
-3. Buscar aluno por nome (sem diferenciar maiúsculas de minúsculas)
-4. Cadastrar nota (só grava se o aluno existir e se a nota for numérica)
-5. Consultar nota de um aluno em uma disciplina
-6. Listar todas as notas de um aluno
-7. Calcular a média de um aluno (2 casas decimais)
-8. Buscar alunos por disciplina
-0. Sair
+| Opção | Funcionalidade |
+|-------|----------------|
+| 1 | Cadastrar aluno (não permite ID duplicado) |
+| 2 | Listar alunos |
+| 3 | Buscar aluno por nome (sem diferenciar maiúsculas de minúsculas) |
+| 4 | Cadastrar nota (só grava se o aluno existir e se a nota for numérica) |
+| 5 | Consultar nota de um aluno em uma disciplina |
+| 6 | Listar todas as notas de um aluno |
+| 7 | Calcular a média de um aluno (2 casas decimais) |
+| 8 | Buscar alunos por disciplina |
+| 9 | Editar uma nota |
+| 10 | Excluir uma nota (com confirmação) |
+| 11 | Buscar alunos com nota acima de um valor |
+| 0 | Sair |
 
 Os arquivos `alunos.txt` e `notas.txt` não são versionados (estão no
 `.gitignore`), porque são dados de execução e não código.
