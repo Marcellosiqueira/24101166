@@ -16,6 +16,7 @@ como um SGBD faz ao trazer paginas do disco.
 """
 
 import os
+import tempfile
 import time
 
 ARQUIVO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados.txt")
@@ -258,12 +259,17 @@ def buscar_com_indice(valor, indice, handle, colunas, delimitador):
     return dict(zip(colunas, campos))
 
 
-def gerar_arquivo_grande(origem=ARQUIVO, destino="dados_grande.txt", repeticoes=10000):
+def gerar_arquivo_grande(origem=ARQUIVO, destino=None, repeticoes=10000):
     """Replica a base original N vezes, reatribuindo IDs sequenciais.
 
     Serve so para o benchmark: com 30 linhas nao da para observar a diferenca
     entre O(n) e O(1), o tempo fica todo em abrir o arquivo.
+
+    O arquivo vai para o diretorio temporario do sistema, nao para o diretorio
+    do projeto, para nao poluir o repositorio se a execucao for interrompida.
     """
+    if destino is None:
+        destino = os.path.join(tempfile.gettempdir(), "sgbd_dados_grande.txt")
     delimitador = detectar_delimitador(origem)
     colunas = ler_colunas(origem, delimitador)
     base = [campos for _, campos in ler_registros(origem, delimitador)]

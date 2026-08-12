@@ -30,6 +30,9 @@ python3 sgbd.py    # menu interativo
 python3 demo.py    # todas as consultas de uma vez
 ```
 
+Em ambientes onde só existe o comando `python` apontando para o Python 3, use
+`python` no lugar de `python3`. Testado em 3.12, sem dependências externas.
+
 ## Desafio 1: Full Table Scan
 
 `full_table_scan()` percorre o arquivo linha a linha, faz o `split` pelo
@@ -201,20 +204,22 @@ significam cem varreduras competindo pela mesma banda de disco. O tempo de respo
 individual degrada bem além do linear, porque a fila de I/O satura.
 
 A medição está no código, na opção 4 do menu. O script replica a base para 300 mil
-registros e busca o último ID, pior caso do scan:
+registros e busca o último ID, pior caso do scan. Os valores absolutos variam por
+máquina, o que importa é a relação entre as duas linhas:
 
 ```
 Escala           |  Registros |    Scan (ms) |  Indice (ms) |    Ganho
 ------------------------------------------------------------------------
-base original    |         30 |       0.0700 |       0.0086 |       8x
-base replicada   |    300,000 |     176.6017 |       0.0186 |    9505x
+base original    |         30 |       0.1774 |       0.0106 |      17x
+base replicada   |    300,000 |      91.4640 |       0.0265 |    3451x
 ```
 
-O scan saiu de 0,07 ms para 176 ms, um fator próximo de 2.500 para 10.000 vezes
-mais registros. Comportamento linear, como esperado. A busca indexada saiu de
-0,0086 ms para 0,0186 ms, praticamente constante. Extrapolando para 10 milhões de
-registros, o scan passaria de 5 segundos enquanto o índice continuaria na casa dos
-microssegundos.
+O scan multiplicou o tempo por cerca de 500 para 10.000 vezes mais registros.
+Comportamento linear, com a diferença entre os dois fatores explicada pelo custo
+fixo de abrir o arquivo, que domina na base de 30 linhas. A busca indexada ficou
+praticamente constante, na casa das dezenas de microssegundos nas duas escalas.
+Extrapolando para 10 milhões de registros, o scan passaria de 3 segundos enquanto o
+índice continuaria no mesmo patamar.
 
 Uma melhoria parcial sem índice seria ordenar o arquivo por ID e aplicar busca
 binária com `seek`, caindo para O(log n). Isso exige registros de tamanho fixo ou
