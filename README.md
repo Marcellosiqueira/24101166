@@ -1,83 +1,94 @@
-# Aula 02 - Relacionamento de entidades utilizando arquivos
+# Banco de Dados — IDP
 
-Atividade da disciplina de Banco de Dados. O objetivo é simular o relacionamento
-entre duas entidades (Aluno e Nota) usando **apenas arquivos de texto**, sem
-nenhum SGBD (sem SQLite, MySQL, PostgreSQL etc.). Os dados ficam gravados em
-disco e continuam disponíveis entre uma execução e outra.
+Marcello Azevedo Pinheiro Siqueira
+Matrícula 24101166
 
-## Estrutura dos dados
+Entregas da disciplina. A numeração das pastas segue a numeração do repositório de
+materiais do professor.
 
-O sistema usa dois arquivos, criados automaticamente na primeira gravação:
+| Aula | Atividade | Entrega |
+| --- | --- | --- |
+| 02 | Conceito de dado e informação: sistema de aeroporto | [`atividade-01-aeroporto/`](atividade-01-aeroporto/) |
+| 03 | Relacionamento de entidades utilizando arquivos | [`aula03-relacionamento-arquivos/`](aula03-relacionamento-arquivos/) |
+| 04 | Simulando um SGBD sobre arquivos de texto | [`aula04-sgbd-arquivo/`](aula04-sgbd-arquivo/) |
+| 05 | Modelagem de dados: sistema de aeroporto | [`aula05-modelagem-dados/`](aula05-modelagem-dados/) |
+| 06 | Dicionário de dados do sistema de aeroporto | [`aula06-dicionario-dados/`](aula06-dicionario-dados/) |
+| 08 | Criação do banco de dados no MySQL | [`aula08-criacao-banco/`](aula08-criacao-banco/) |
 
-**alunos.txt** — uma linha por aluno:
+O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
+explicitamente esse nome.
 
-```
-ID;NOME;TELEFONE;EMAIL
-1;Ana Souza;61999990000;ana@email.com
-```
+## Aula 02 — Conceito de dado e informação
 
-**notas.txt** — uma linha por nota:
+Levantamento dos dados que um sistema de gerenciamento de aeroporto precisa armazenar e
+das informações que ele deve fornecer a partir deles. Entrega em Markdown, sem código.
 
-```
-ID_ALUNO;DISCIPLINA;NOTA
-1;Banco de Dados;9.5
-```
+## Aula 03 — Relacionamento de entidades
 
-O campo `ID_ALUNO` de `notas.txt` referencia o campo `ID` de `alunos.txt`,
-funcionando como uma **chave estrangeira** feita "na mão".
-
-## Como executar
+Sistema acadêmico em Python puro, sem SGBD, relacionando `alunos.txt` e `notas.txt` para
+responder consultas do tipo "qual nota o aluno X tirou na disciplina Y". O `ID_ALUNO` das
+notas funciona como chave estrangeira feita à mão.
 
 ```bash
-python aula02.py
+cd aula03-relacionamento-arquivos
+python aula03.py
 ```
 
-O programa abre um menu em loop com as opções:
+Os arquivos de dados são gerados na execução e estão no `.gitignore`.
 
-| Opção | Funcionalidade |
-|-------|----------------|
-| 1 | Cadastrar aluno (não permite ID duplicado) |
-| 2 | Listar alunos |
-| 3 | Buscar aluno por nome (sem diferenciar maiúsculas de minúsculas) |
-| 4 | Cadastrar nota (só grava se o aluno existir e se a nota for numérica) |
-| 5 | Consultar nota de um aluno em uma disciplina |
-| 6 | Listar todas as notas de um aluno |
-| 7 | Calcular a média de um aluno (2 casas decimais) |
-| 8 | Buscar alunos por disciplina |
-| 9 | Editar uma nota |
-| 10 | Excluir uma nota (com confirmação) |
-| 11 | Buscar alunos com nota acima de um valor |
-| 0 | Sair |
+## Aula 04 — Simulando um SGBD
 
-Os arquivos `alunos.txt` e `notas.txt` não são versionados (estão no
-`.gitignore`), porque são dados de execução e não código.
+Três operações de consulta implementadas diretamente sobre arquivo texto, usando o painel
+de voos fornecido pelo professor:
 
-## Reflexão
+- Full table scan, equivalente a `SELECT *`
+- Busca por chave primária com early exit, equivalente a `WHERE ID = X`
+- Filtro e projeção, equivalente a `SELECT col1, col2 WHERE condição`
 
-**Como o programa identifica a qual aluno uma nota pertence?**
-Pelo `ID_ALUNO` gravado na linha da nota. Esse número é o mesmo `ID` que
-identifica o aluno de forma única em `alunos.txt`. Para consultar uma nota, o
-programa primeiro localiza o aluno pelo nome, pega o `ID` dele e só então varre
-`notas.txt` procurando as linhas cujo primeiro campo seja igual a esse `ID`.
+Inclui um benchmark comparando o scan sequencial com um índice hash de offsets em duas
+escalas, e as respostas das questões de reflexão sobre desempenho, indexação e
+concorrência.
 
-**Por que usar um identificador único em vez do nome?**
-Porque nomes se repetem e mudam. Dois alunos podem se chamar "Ana Souza"
-(homônimos), e nesse caso não haveria como saber de quem é a nota. Além disso,
-um nome pode ser corrigido ou alterado, e todas as notas ligadas a ele ficariam
-órfãs. O ID é estável: nunca muda e nunca se repete, então a ligação entre os
-arquivos continua válida.
+```bash
+cd aula04-sgbd-arquivo
+python sgbd.py    # menu interativo
+python demo.py    # todas as consultas de uma vez
+```
 
-**Como garantir que uma nota pertença a um aluno existente?**
-Validando antes de gravar. Na opção "Cadastrar nota", o programa procura o ID
-informado em `alunos.txt`; se não encontrar, a nota simplesmente não é escrita
-no arquivo. Isso evita notas apontando para alunos que não existem.
+## Aula 05 — Modelagem de dados
 
-**Quais dificuldades surgem quando os dados estão em arquivos separados?**
-Toda a integridade referencial fica por conta do programa: nada impede que
-alguém edite `alunos.txt` no bloco de notas e apague um aluno que ainda tem
-notas, deixando registros órfãos. Também não existe índice — para achar um
-aluno é preciso ler o arquivo linha por linha, o que fica lento conforme os
-dados crescem. Não há tipos de dados (tudo é texto), nem controle de acesso
-simultâneo, e o caractere `;` usado como separador não pode aparecer dentro de
-um campo. Um SGBD resolve tudo isso com chaves primárias e estrangeiras,
-índices, tipagem e transações.
+Modelo de dados de um sistema de aeroporto a partir das entidades PASSAGEIRO, VOO e
+AERONAVE: atributos, chaves, cardinalidades, resolução do relacionamento N:N por tabela
+associativa, modelo lógico e diagrama.
+
+Entregue em PDF e em Markdown. O DDL do apêndice foi executado e testado contra as
+violações que o documento afirma que o banco recusa.
+
+## Aula 06 — Dicionário de dados
+
+Documentação técnica do banco `aeroporto` sobre o modelo de dicionário fornecido
+pelo professor: ficha de cada uma das quatro tabelas com tipo, tamanho,
+obrigatoriedade, chave, default, domínio e exemplo de cada campo, mais os
+relacionamentos, 9 regras de negócio, os domínios controlados e os 11 índices.
+
+Entregue em `.docx`, formato do modelo original.
+
+## Aula 08 — Criação do banco de dados
+
+Implementação em MySQL do modelo da Aula 05: banco `aeroporto` com as tabelas
+`aeronave`, `passageiro`, `voo` e a associativa `passagem`, mais os dados de
+exemplo e as consultas.
+
+Inclui um script de verificação que roda 10 comandos que devem ser recusados pelo
+banco e 3 que devem passar, provando que as regras de negócio do modelo estão nas
+constraints e não apenas na aplicação.
+
+```bash
+mysql -u root -p < aeroporto.sql
+mysql -u root -p --force aeroporto < testes_constraints.sql
+```
+
+## Ambiente
+
+Python 3.12, sem dependências externas.
+MySQL 8.x para a Aula 08, com o script testado também em MariaDB 10.11.
