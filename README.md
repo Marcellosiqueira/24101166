@@ -14,6 +14,7 @@ materiais do professor.
 | 05 | Modelagem de dados: sistema de aeroporto | [`aula05-modelagem-dados/`](aula05-modelagem-dados/) |
 | 06 | Dicionário de dados do sistema de aeroporto | [`aula06-dicionario-dados/`](aula06-dicionario-dados/) |
 | 08 | Criação do banco de dados no MySQL | [`aula08-criacao-banco/`](aula08-criacao-banco/) |
+| 09 | Normalização do banco de dados | [`aula09-normalizacao/`](aula09-normalizacao/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -88,7 +89,30 @@ mysql -u root -p < aeroporto.sql
 mysql -u root -p --force aeroporto < testes_constraints.sql
 ```
 
+## Aula 09 — Normalização do banco de dados
+
+Análise de normalização do banco `aeroporto` partindo do SQL da Aula 08, percorrendo da
+1FN à 5FN. Duas violações com dependência funcional identificada e anomalia concreta:
+
+- **2FN em `voo`** — `numero_voo` determina origem e destino, e é apenas parte da chave
+  candidata `(numero_voo, data_hora_partida)`. Extraída a tabela `rota`.
+- **3FN em `aeronave`** — `modelo` determina `fabricante`, dependência transitiva.
+  Extraída a tabela `modelo_aeronave`.
+
+As outras três formas normais são verificadas e mantidas sem alteração, com justificativa,
+como o enunciado pede. Quatro dependências plausíveis foram examinadas e descartadas por
+análise do domínio, entre elas a capacidade de assentos, que permanece em `aeronave`
+porque a mesma aeronave pode ter configurações de cabine diferentes.
+
+Quatro tabelas passam a seis. O SQL normalizado foi executado em MySQL 8.0.46 e as cinco
+consultas da Aula 08 retornam resultado idêntico nos dois esquemas.
+
+```bash
+mysql -u root -p < sql_aula_8.sql        # banco da Aula 08, preservado
+mysql -u root -p < sql_normalizado.sql   # banco normalizado
+```
+
 ## Ambiente
 
 Python 3.12, sem dependências externas.
-MySQL 8.x para a Aula 08, com o script testado também em MariaDB 10.11.
+MySQL 8.x para as Aulas 08 e 09, com o script da Aula 08 testado também em MariaDB 10.11.
