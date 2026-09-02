@@ -508,28 +508,55 @@ binárias, mas **também não é** o simples produto delas — existe uma depend
 genuína, tipicamente associada a uma regra cíclica do tipo "se A se relaciona com B, e B
 com C, e A com C, então a tripla (A, B, C) existe".
 
-O modelo final não tem nenhuma relação ternária. `passagem` é a única tabela associativa
-e é **binária**: liga `passageiro` a `voo`. Seus demais atributos — `assento`,
-`localizador`, `classe`, `checkin_realizado` — são fatos sobre a passagem em si, não
-participantes de um relacionamento de três pontas.
+### O argumento estrutural
 
-Testando a decomposição explicitamente: `passagem` poderia ser projetada em
-`(id_passageiro, id_voo)`, `(id_voo, assento)` e `(id_passageiro, assento)`? A junção
-dessas três projeções **não** reconstrói a tabela original — ela produz linhas espúrias,
-combinando um passageiro com um assento de um voo em que ele não embarcou, desde que ele
-tenha usado aquele número de assento em algum outro voo. Nos dados de exemplo isso é
-concreto: a passageira 1 está no assento `12A` do voo 1 e no `22F` do voo 3; o passageiro
-6 está no `22E` do voo 3. A junção das projeções geraria combinações que nunca existiram.
+A ausência de dependência de junção se estabelece pela estrutura das relações, não por
+teste de caso particular.
 
-Como a decomposição não é sem perda, **não existe dependência de junção** e a tabela já
-está em 5FN. Não há o que decompor.
+**Nenhuma das seis tabelas é ternária.** Cinco delas — `modelo_aeronave`, `aeronave`,
+`passageiro`, `rota` e `voo` — são relações simples sobre uma única entidade: cada linha
+descreve um objeto e cada atributo é fato sobre esse objeto. Relação sobre uma entidade
+não admite decomposição em três projeções que a recomponham, porque não há três
+participantes a separar.
 
-O mesmo vale para as demais cinco tabelas: todas são relações simples sobre uma única
-entidade, com dependências decorrentes apenas das suas chaves candidatas — que é a
-condição suficiente para 5FN.
+**`passagem` é a única associativa, e é binária.** Ela liga exatamente dois participantes,
+`passageiro` e `voo`. Seus demais atributos — `assento`, `localizador`, `classe`,
+`checkin_realizado` — não são um terceiro participante: são fatos sobre a passagem,
+determinados pela chave. O `assento` em particular poderia parecer um terceiro lado, mas
+não é uma entidade com existência independente no modelo; é atributo da passagem, e é
+`(id_voo, assento)` que forma chave candidata, não `assento` sozinho.
 
-Registro que toda relação em 5FN está automaticamente em 4FN, e que a maioria dos
-esquemas bem modelados em BCNF já satisfaz as duas sem esforço adicional. É o caso aqui.
+**Toda dependência de junção presente decorre das chaves candidatas.** Em cada uma das
+seis tabelas, os atributos dependem de uma chave inteira — condição que já foi verificada
+ao estabelecer BCNF na seção de 3FN. Quando a única dependência de junção de uma relação é
+implicada pelas suas superchaves, a relação está em 5FN por definição. **É este o
+argumento que sustenta a conclusão.**
+
+Portanto, as seis tabelas estão em 5FN e não há o que decompor.
+
+### Ilustração: o que aconteceria se decompuséssemos `passagem`
+
+O argumento acima é estrutural e basta. Ainda assim, vale ver a consequência concreta em
+`passagem`, que é a única tabela em que a pergunta chega a fazer sentido.
+
+Suponha projetá-la em `(id_passageiro, id_voo)`, `(id_voo, assento)` e
+`(id_passageiro, assento)`. A junção das três **não** reconstrói a tabela original: produz
+linhas espúrias, combinando um passageiro com um assento de um voo em que ele não
+embarcou, desde que ele tenha usado aquele número de assento em algum outro voo.
+
+Nos dados de exemplo isso é visível: a passageira 1 está no assento `12A` do voo 1 e no
+`22F` do voo 3; o passageiro 6 está no `22E` do voo 3. A junção das projeções geraria
+combinações que nunca existiram.
+
+Cabe uma ressalva sobre o alcance disso: **exibir uma decomposição que falha ilustra, não
+demonstra.** Mostrar que *esta* tripla de projeções perde informação não prova que nenhuma
+outra tripla se recomporia — a prova de ausência de dependência de junção é a estrutural,
+dada acima. A ilustração serve para tornar tangível por que decompor aqui seria um erro, e
+é assim que deve ser lida.
+
+Registro, por fim, que toda relação em 5FN está automaticamente em 4FN, e que a maioria
+dos esquemas bem modelados em BCNF já satisfaz as duas sem esforço adicional. É o caso
+aqui.
 
 ---
 
@@ -670,7 +697,7 @@ segundo substitui o primeiro.
 | **2FN** | **Violada em `voo`** | Extraída `rota`. `numero_voo → origem, destino` era dependência parcial da chave candidata `(numero_voo, data_hora_partida)`. |
 | **3FN** | **Violada em `aeronave`** | Extraída `modelo_aeronave`. `modelo → fabricante` era transitiva. `capacidade_assentos` mantida em `aeronave`. |
 | **4FN** | Atendida | Nenhuma. Sem atributos multivalorados independentes; o N:N já estava resolvido pela associativa desde a Aula 05. |
-| **5FN** | Atendida | Nenhuma. Sem relação ternária; a decomposição de `passagem` em três projeções não seria sem perda. |
+| **5FN** | Atendida | Nenhuma. Sem relação ternária e com toda dependência de junção decorrente das chaves candidatas; `passagem` é associativa binária. |
 
 Quatro tabelas passaram a seis. Duas alterações, ambas com dependência funcional
 identificada e anomalia concreta associada. Três formas normais verificadas e mantidas,

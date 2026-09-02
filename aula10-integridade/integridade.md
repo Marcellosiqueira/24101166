@@ -85,7 +85,33 @@ O custo é que a chave substituta não impede duplicata semântica: dois registr
 `id` diferente e o mesmo conteúdo real. É exatamente por isso que **toda chave natural foi
 preservada como `UNIQUE`**, o que é o assunto da seção 4.
 
-**Testes:** T01 (PK duplicada), T02 (PK nula).
+### Um detalhe do MySQL que muda como a integridade de entidade se testa
+
+A metade "não duplicada" da regra se demonstra por `INSERT`: repetir uma chave existente
+retorna 1062, e é o teste T01.
+
+A metade "não nula" **não se demonstra por `INSERT`**. O MySQL trata `NULL` em coluna
+`AUTO_INCREMENT` como **pedido de geração de valor**, e não como violação: o comando
+
+```sql
+INSERT INTO passageiro (id_passageiro, nome) VALUES (NULL, 'Teste');
+```
+
+é aceito sem erro nenhum, e o servidor grava o próximo id da sequência. Verificado — o
+registro entrou com `id_passageiro = 9`.
+
+A recusa só aparece ao tentar **apagar** um valor de chave já existente:
+
+```sql
+UPDATE passageiro SET id_passageiro = NULL WHERE id_passageiro = 1;
+-- ERROR 1048 (23000): Column 'id_passageiro' cannot be null
+```
+
+Por isso o teste da nulidade da chave primária é um `UPDATE`, e está na seção 9.1.1 junto
+com as demais recusas em atualização. Tratá-lo como `INSERT` daria um falso negativo: o
+comando passaria e o teste pareceria ter provado algo que não provou.
+
+**Testes:** T01 (PK duplicada), T02 (PK nula, por `UPDATE` — seção 9.1.1).
 
 ---
 
@@ -163,8 +189,8 @@ Na prática o caso é raro, porque as chaves são `AUTO_INCREMENT` e não têm m
 mudar. `ON UPDATE CASCADE` está declarado como salvaguarda: se uma renumeração for
 necessária em manutenção, ela funciona sem quebrar referência.
 
-**Testes:** T03 a T06 (inserção com FK inexistente), T07 a T11 (exclusão de pai com
-filhos).
+**Testes:** T03 a T06 e T32 (inserção com FK inexistente), T07 a T11 (exclusão de pai com
+filhos). As cinco chaves estrangeiras são testadas nas duas direções.
 
 ---
 
@@ -231,7 +257,8 @@ O teste T16 verifica exatamente isso.
 `DEFAULT` é integridade de domínio no sentido preventivo: em vez de recusar o valor
 errado, fornece o certo quando nenhum é informado.
 
-**Testes:** T12 a T19.
+**Testes:** T12 a T19; e T34, que viola o domínio de `status` por `UPDATE` em vez de
+`INSERT` (seção 9.1.1).
 
 ---
 
@@ -279,7 +306,7 @@ Oito restrições `UNIQUE`, três delas compostas.
 | `uq_modelo_aeronave_modelo` | `modelo_aeronave` | `modelo` | Mesmo modelo cadastrado duas vezes, possivelmente com fabricantes divergentes — reintroduzindo pela porta dos fundos a inconsistência que a 3FN eliminou. |
 | `uq_aeronave_prefixo` | `aeronave` | `prefixo` | Duas aeronaves com a mesma matrícula. O prefixo é identificador internacional único. |
 | `uq_passageiro_cpf` | `passageiro` | `cpf` | Mesma pessoa cadastrada duas vezes, com histórico de voos fragmentado entre os dois cadastros. |
-| `uq_rota_numero_voo` | `rota` | `numero_voo` | Ver abaixo — é a mais importante das nove. |
+| `uq_rota_numero_voo` | `rota` | `numero_voo` | Ver abaixo — é a mais importante das oito. |
 | `uq_voo_rota_partida` | `voo` | `(id_rota, data_hora_partida)` | O mesmo voo partindo duas vezes no mesmo instante. |
 | `uq_passagem_localizador` | `passagem` | `localizador` | Dois bilhetes com o mesmo código de reserva. |
 | `uq_passagem_passageiro_voo` | `passagem` | `(id_passageiro, id_voo)` | Mesmo passageiro ocupando dois assentos no mesmo voo. Era o desafio da Aula 05. |
@@ -382,14 +409,14 @@ aplicação. Todas identificadas a partir **deste** projeto, e não de exemplos 
 | RN-05 | Origem e destino seguem o padrão IATA | `ck_rota_*_iata` | T16–T18 |
 | RN-06 | O mesmo voo não parte duas vezes no mesmo instante | `uq_voo_rota_partida` | T27 |
 | RN-07 | Um voo não chega antes de partir | `ck_voo_chegada_apos_partida` | T19 |
-| RN-08 | O status do voo é um dos quatro previstos | `ck_voo_status` | T12 |
+| RN-08 | O status do voo é um dos quatro previstos | `ck_voo_status` | T12, T34 |
 | RN-09 | O mesmo passageiro não ocupa dois assentos no mesmo voo | `uq_passagem_passageiro_voo` | T28 |
 | RN-10 | O mesmo assento não é vendido duas vezes no mesmo voo | `uq_passagem_voo_assento` | T29 |
 | RN-11 | Cada bilhete tem um localizador exclusivo | `uq_passagem_localizador` | T30 |
 | RN-12 | A classe da passagem é uma das três previstas | `ck_passagem_classe` | T13 |
 | RN-13 | Aeronave em operação tem capacidade positiva | `ck_aeronave_capacidade` | T14 |
 | RN-14 | Não se apaga registro do qual outro depende | `ON DELETE RESTRICT` (5 FKs) | T07–T11 |
-| RN-15 | **Passagens vendidas não excedem a capacidade da aeronave** | trigger — ver abaixo | T31 |
+| RN-15 | **Passagens vendidas não excedem a capacidade da aeronave** | trigger — ver abaixo | T31, T33 |
 
 ### RN-15: a regra que as restrições declarativas não alcançam
 
@@ -432,7 +459,9 @@ END
 
 A segunda trigger não é redundância: **sem ela a regra seria contornável por `UPDATE`**,
 movendo uma passagem para um voo já lotado. Ela só executa a verificação quando `id_voo`
-muda, para não pagar o custo em atualizações de check-in ou classe.
+muda, para não pagar o custo em atualizações de check-in ou classe. O teste T33 exercita
+exatamente esse caminho, e é o que impede que a segunda trigger seja código não
+verificado.
 
 `SIGNAL SQLSTATE '45000'` é o mecanismo padrão para erro definido pelo usuário; o MySQL o
 reporta como **erro 1644**, confirmado no teste T31.
@@ -566,16 +595,16 @@ O `sql_integridade.sql` cria o banco com código de saída **0** e `stderr` vazi
 6 aeronaves, 8 passageiros, 7 rotas, 8 voos e 12 passagens. **A carga limpa é a primeira
 contraprova**: as restrições não bloqueiam a operação legítima do sistema.
 
-### 9.1 Comandos que devem ser recusados
+### 9.1 Recusas em inserção e exclusão
 
 | # | Situação testada | Regra | Esperado | Obtido | Constraint acionada |
 |---|---|---|---|---|---|
 | T01 | `id_passageiro` duplicado | Entidade | 1062 | **1062** | `passageiro.PRIMARY` |
-| T02 | `id_passageiro` nulo | Entidade | 1048 | **1048** | coluna `NOT NULL` |
 | T03 | Passagem para voo inexistente | Referencial | 1452 | **1452** | `fk_passagem_voo` |
 | T04 | Voo com aeronave inexistente | Referencial | 1452 | **1452** | `fk_voo_aeronave` |
 | T05 | Aeronave com modelo inexistente | Referencial | 1452 | **1452** | `fk_aeronave_modelo` |
 | T06 | Voo com rota inexistente | Referencial | 1452 | **1452** | `fk_voo_rota` |
+| T32 | Passagem para passageiro inexistente | Referencial | 1452 | **1452** | `fk_passagem_passageiro` |
 | T07 | Apagar aeronave com voos | Referencial | 1451 | **1451** | `fk_voo_aeronave` |
 | T08 | Apagar modelo com aeronaves | Referencial | 1451 | **1451** | `fk_aeronave_modelo` |
 | T09 | Apagar rota com voos | Referencial | 1451 | **1451** | `fk_voo_rota` |
@@ -620,6 +649,48 @@ T08  ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key
 teste cadastra uma aeronave `PR-MIN` com `capacidade_assentos = 1` e um voo para ela. A
 primeira passagem entra normalmente; a segunda é recusada pela trigger. Isso testa a regra
 no seu limite exato, que é onde ela precisa funcionar.
+
+#### 9.1.1 Recusas em atualização
+
+Os testes da seção anterior são todos `INSERT` ou `DELETE`. Testar só essas duas operações
+deixa de fora uma categoria inteira, e não por detalhe: **restrição que vale na inserção e
+não vale na atualização é um buraco clássico de modelagem.** O dado entra correto, passa
+por todas as verificações, e depois é levado a um estado inválido por um `UPDATE` que
+ninguém checou. O resultado é pior do que não ter a regra, porque o banco parece garantida
+uma consistência que ele não mantém.
+
+Três motivos concretos para a categoria existir neste trabalho:
+
+- **A `trg_passagem_capacidade_update` só existe por causa disso.** Ela foi escrita
+  precisamente porque a versão de `INSERT` sozinha deixaria a regra contornável: bastava
+  inserir a passagem em um voo vazio e depois movê-la para o lotado. Sem um teste de
+  `UPDATE`, essa segunda trigger seria código nunca verificado — exatamente o tipo de
+  salvaguarda que se descobre quebrada quando já é tarde.
+- **A nulidade da chave primária só é observável por `UPDATE`**, pelo comportamento do
+  `AUTO_INCREMENT` descrito na seção 1.
+- **Os `CHECK` precisam valer nas duas operações.** O MySQL os aplica em `INSERT` e
+  `UPDATE`, mas isso é afirmação sobre o SGBD que vale a pena confirmar no banco real, e
+  não presumir.
+
+| # | Situação testada | Regra | Esperado | Obtido | Constraint acionada |
+|---|---|---|---|---|---|
+| T02 | `UPDATE` colocando `NULL` na chave primária | Entidade | 1048 | **1048** | `passageiro.id_passageiro` |
+| T33 | `UPDATE` movendo passagem para voo já lotado | Negócio | 1644 | **1644** | `trg_passagem_capacidade_update` |
+| T34 | `UPDATE` mudando `status` para valor fora do domínio | Domínio | 3819 | **3819** | `ck_voo_status` |
+
+**3 de 3 recusados, com o código esperado em todos.**
+
+```
+T02  ERROR 1048 (23000): Column 'id_passageiro' cannot be null
+T33  ERROR 1644 (45000): Capacidade da aeronave excedida para este voo
+T34  ERROR 3819 (HY000): Check constraint 'ck_voo_status' is violated.
+```
+
+T33 reaproveita o cenário montado para T31 — a aeronave `PR-MIN` de um assento, com a
+passagem `CAP001` já vendida — e tenta mover para lá uma passagem existente de outro voo.
+A trigger de `UPDATE` recusa, provando que o caminho alternativo está fechado.
+
+Somando as duas seções: **34 comandos recusados, 34 com o código esperado.**
 
 ### 9.2 Comandos que devem ser aceitos — contraprovas
 
@@ -687,18 +758,20 @@ contagens por tabela.
 
 | Categoria | Restrições | Testes |
 |---|---|---|
-| Integridade de entidade | 6 `PRIMARY KEY` | T01–T02 |
-| Integridade referencial | 5 `FOREIGN KEY`, todas `ON DELETE RESTRICT` / `ON UPDATE CASCADE` | T03–T11 |
-| Integridade de domínio | Tipos, 7 `CHECK`, 3 `DEFAULT` | T12–T19 |
+| Integridade de entidade | 6 `PRIMARY KEY` | T01, T02 |
+| Integridade referencial | 5 `FOREIGN KEY`, todas `ON DELETE RESTRICT` / `ON UPDATE CASCADE` | T03–T11, T32 |
+| Integridade de domínio | Tipos, 7 `CHECK`, 3 `DEFAULT` | T12–T19, T34 |
 | Integridade de chave | 8 chaves candidatas além das 6 primárias | T23–T30 |
 | Unicidade | 8 `UNIQUE`, 3 delas compostas | T23–T30 |
 | Obrigatoriedade | 19 colunas `NOT NULL` além das 6 primárias; 6 colunas nulas por decisão justificada | T20–T22, C04–C05 |
-| Regras de negócio | 15 regras, 14 declarativas e 1 por trigger | T12–T31 |
+| Regras de negócio | 15 regras, 14 declarativas e 1 por trigger | T07–T34 |
 | **Não implementadas** | 4 regras analisadas e rejeitadas com motivo | C04, C06–C07 |
 
-**41 testes executados: 31 recusas e 10 contraprovas, todos com o resultado esperado.**
+**44 testes executados: 34 recusas e 10 contraprovas, todos com o resultado esperado.**
+Das 34 recusas, 31 são em inserção ou exclusão e 3 em atualização.
 
-O banco recusa dado inconsistente em todas as sete categorias de integridade e não bloqueia
-nenhuma operação legítima. As regras que o SGBD não alcança de forma declarativa estão
+O banco recusa dado inconsistente em todas as sete categorias de integridade, nas três
+operações que alteram dados — inserção, exclusão e atualização — e não bloqueia nenhuma
+operação legítima. As regras que o SGBD não alcança de forma declarativa estão
 documentadas com o motivo, e a única implementada por trigger tem a justificativa de ser o
 único recurso do próprio banco capaz de expressá-la.

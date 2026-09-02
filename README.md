@@ -131,9 +131,11 @@ cada uma: `UNIQUE` em e-mail bloquearia família que compartilha contato, `NOT N
 portão impediria cadastrar voo programado, e a detecção de voos simultâneos do mesmo
 passageiro bloquearia conexão legítima.
 
-41 testes executados em MySQL 8.0.46: 31 comandos que devem ser recusados, com o código de
+44 testes executados em MySQL 8.0.46: 34 comandos que devem ser recusados, com o código de
 erro conferido na saída do servidor, e 10 contraprovas mostrando que nenhuma restrição
-bloqueia operação válida.
+bloqueia operação válida. As recusas cobrem as três operações que alteram dados — inserção,
+exclusão e atualização —, porque restrição que vale ao inserir e não vale ao atualizar é um
+buraco clássico, e é a razão de a trigger de capacidade ter uma segunda versão.
 
 ```bash
 mysql -u root -p < sql_integridade.sql
