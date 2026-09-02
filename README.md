@@ -15,6 +15,7 @@ materiais do professor.
 | 06 | Dicionário de dados do sistema de aeroporto | [`aula06-dicionario-dados/`](aula06-dicionario-dados/) |
 | 08 | Criação do banco de dados no MySQL | [`aula08-criacao-banco/`](aula08-criacao-banco/) |
 | 09 | Normalização do banco de dados | [`aula09-normalizacao/`](aula09-normalizacao/) |
+| 10 | Restrições de integridade | [`aula10-integridade/`](aula10-integridade/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -112,7 +113,34 @@ mysql -u root -p < sql_aula_8.sql        # banco da Aula 08, preservado
 mysql -u root -p < sql_normalizado.sql   # banco normalizado
 ```
 
+## Aula 10 — Restrições de integridade
+
+Regras de integridade do banco `aeroporto` sobre o esquema normalizado da Aula 09,
+organizadas nas sete categorias do enunciado: entidade, referencial, domínio, chave,
+unicidade, obrigatoriedade e regras de negócio. Cada restrição tem justificativa do
+problema que evita, incluindo o que `ON DELETE CASCADE` destruiria em cada uma das cinco
+chaves estrangeiras.
+
+Quatro regras novas em relação à Aula 09: chegada prevista posterior à partida, formato
+IATA em origem e destino, e o limite de passagens vendidas pela capacidade da aeronave —
+esta última por trigger, por ser a única forma de expressá-la no SGBD, já que o `CHECK` do
+MySQL não aceita subconsulta nem agregação.
+
+Inclui uma seção sobre as regras **deliberadamente não implementadas**, com o motivo de
+cada uma: `UNIQUE` em e-mail bloquearia família que compartilha contato, `NOT NULL` em
+portão impediria cadastrar voo programado, e a detecção de voos simultâneos do mesmo
+passageiro bloquearia conexão legítima.
+
+41 testes executados em MySQL 8.0.46: 31 comandos que devem ser recusados, com o código de
+erro conferido na saída do servidor, e 10 contraprovas mostrando que nenhuma restrição
+bloqueia operação válida.
+
+```bash
+mysql -u root -p < sql_integridade.sql
+```
+
 ## Ambiente
 
 Python 3.12, sem dependências externas.
-MySQL 8.x para as Aulas 08 e 09, com o script da Aula 08 testado também em MariaDB 10.11.
+MySQL 8.x para as Aulas 08, 09 e 10, com o script da Aula 08 testado também em
+MariaDB 10.11.
