@@ -630,3 +630,70 @@ Duas alternativas ficam registradas como próximos passos. **Nenhuma foi testada
   lentos;
 - um índice começando por `data_hora_partida`, que serve às consultas C1 e C5, é provavelmente
   mais útil para o painel do que um índice em `status`.
+
+---
+
+## 5. Etapa 5. Compartilhamento com a turma
+
+O roteiro pede dois pontos: uma view proposta e por quê, e um resultado de índice e o que
+ele ensinou. Escolhi os dois casos em que o resultado contrariou o que eu esperava antes de
+medir.
+
+### 5.1 A view: `vw_painel_voos`
+
+Propus essa view porque o painel de voos é a consulta que o projeto repete desde a Aula 08:
+juntar `voo`, `rota`, `aeronave` e `modelo_aeronave` para mostrar número do voo, origem,
+destino, horário, portão, status e o modelo da aeronave. São quatro tabelas para responder a
+pergunta mais banal do sistema.
+
+O que eu não esperava: **essa view aceitava escrita.** O `information_schema.VIEWS` devolvia
+`IS_UPDATABLE = YES`, porque o MySQL 8 permite `UPDATE` através de uma view com `JOIN` desde
+que o comando altere uma única tabela de base.
+
+O risco apareceu no teste. Um `UPDATE vw_painel_voos SET modelo = ...` pedido para o voo 305
+alterou também o voo 630, porque os dois usam a mesma aeronave e, portanto, o mesmo registro
+em `modelo_aeronave`. Quem escreve o comando pensa estar mexendo em uma linha da view e mexe
+em uma linha de uma tabela que outras linhas da view compartilham.
+
+A solução foi declarar a view com `ALGORITHM = TEMPTABLE`. O MySQL passa a materializar o
+resultado numa tabela temporária, a view deixa de ser atualizável e qualquer escrita é
+recusada com o erro 1288. Verifiquei depois, pelo `EXPLAIN`, que um filtro por `status` na
+view continua usando `idx_voo_status`, ou seja, a proteção não custou o índice.
+
+### 5.2 O resultado de índice: o mesmo índice, dois desempenhos opostos
+
+O caso que mais ensinou não foi o índice ajudar ou não ajudar. Foi o mesmo índice, na mesma
+tabela, com a mesma distribuição de dados, fazer as duas coisas conforme o valor filtrado.
+
+| Consulta na `voo_teste` desigual, 200 mil linhas | Sem índice | Com `idx_voo_teste_status` | Efeito |
+|---|---|---|---|
+| `status = 'Cancelado'` (0,5% das linhas) | 27,66 ms | 2,04 ms | cerca de 13,5 vezes mais rápido |
+| `status = 'Confirmado'` (49,5% das linhas) | 41,59 ms | 84,85 ms | 2 vezes mais lento |
+
+Três lições que eu levo daqui.
+
+**A decisão é por seletividade, não por tamanho de tabela.** A regra que eu tinha na cabeça,
+"índice não ajuda em tabela pequena", está certa mas é secundária. As duas linhas acima vêm
+da mesma tabela de 200 mil linhas. O que separou o ganho do prejuízo foi a fração de linhas
+que o filtro devolve.
+
+**O otimizador escolheu o índice inclusive quando ele piorava.** Nos quatro cenários medidos o
+`EXPLAIN` mostrou `type: ref`, mesmo nos dois em que o tempo aumentou. A decisão dele é por
+custo estimado, e o modelo errou. Isso derruba a ideia de que ver o índice no plano de
+execução é prova de que ele ajudou.
+
+**Linhas examinadas caindo não significa consulta mais rápida.** A métrica caiu nos quatro
+cenários, inclusive nos dois que ficaram mais lentos. Cada linha encontrada pelo índice ainda
+exige uma busca na chave primária para trazer as colunas que não estão nele, e é esse custo
+que o número de linhas examinadas não mostra.
+
+### 5.3 O que eu levo para a discussão
+
+Duas perguntas que eu queria ouvir de quem modelou o aeroporto de outro jeito:
+
+1. Quem colocou índice em coluna de status ou de situação mediu o tempo, ou parou no `EXPLAIN`?
+   Pelo que medi aqui, o plano de execução sozinho teria me levado à conclusão errada em dois
+   dos quatro cenários.
+2. Quem tem view com `JOIN` no projeto testou escrita através dela? A propagação silenciosa que
+   encontrei no `vw_painel_voos` vale para qualquer view que junte uma tabela de dimensão com
+   uma tabela de fato, que é o formato mais comum de view de painel.
