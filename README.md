@@ -164,5 +164,6 @@ mysql -u root -p < views_indices.sql
 ## Ambiente
 
 Python 3.12, sem dependências externas.
-MySQL 8.x para as Aulas 08, 09 e 10, com o script da Aula 08 testado também em
-MariaDB 10.11.
+MySQL 8.x para as Aulas 08, 09, 10 e 14, com o script da Aula 08 testado também
+em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
+performance_schema ligado.
