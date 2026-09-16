@@ -16,6 +16,7 @@ materiais do professor.
 | 08 | Criação do banco de dados no MySQL | [`aula08-criacao-banco/`](aula08-criacao-banco/) |
 | 09 | Normalização do banco de dados | [`aula09-normalizacao/`](aula09-normalizacao/) |
 | 10 | Restrições de integridade | [`aula10-integridade/`](aula10-integridade/) |
+| 14 | Views e índices | [`aula14-views-indices/`](aula14-views-indices/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -139,6 +140,25 @@ buraco clássico, e é a razão de a trigger de capacidade ter uma segunda vers�
 
 ```bash
 mysql -u root -p < sql_integridade.sql
+```
+
+## Aula 14 — Views e índices
+
+Três views sobre o banco da Aula 10:
+
+- `vw_painel_voos`, com `JOIN` entre voo, rota, aeronave e modelo, declarada com
+  `ALGORITHM = TEMPTABLE` para ser somente leitura;
+- `vw_ocupacao_voo`, com agregação e `LEFT JOIN`, para ocupação por voo;
+- `vw_passagens_pendentes_checkin`, simples e atualizável, com `WITH CHECK OPTION`.
+
+O índice `idx_voo_status` foi medido com `performance_schema` em quatro cenários: a tabela
+real e três variações de uma cópia com 200 mil linhas. O ganho dependeu da seletividade: a
+consulta ficou cerca de 13 vezes mais rápida para um status raro e mais lenta para os
+status comuns. O `UPDATE` de status ficou cerca de 42% mais caro. A conclusão é não manter o
+índice no volume atual do projeto.
+
+```bash
+mysql -u root -p < views_indices.sql
 ```
 
 ## Ambiente
