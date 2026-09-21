@@ -17,6 +17,7 @@ materiais do professor.
 | 09 | Normalização do banco de dados | [`aula09-normalizacao/`](aula09-normalizacao/) |
 | 10 | Restrições de integridade | [`aula10-integridade/`](aula10-integridade/) |
 | 14 | Views e índices | [`aula14-views-indices/`](aula14-views-indices/) |
+| 15 | Triggers | [`aula15-triggers/`](aula15-triggers/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -161,9 +162,45 @@ status comuns. O `UPDATE` de status ficou cerca de 42% mais caro. A conclusão �
 mysql -u root -p < views_indices.sql
 ```
 
+## Aula 15 — Triggers
+
+Três desafios de trigger sobre o banco da Aula 10, somando oito triggers no banco:
+
+- **Validação de regra de negócio com `BEFORE UPDATE`.** A regra de capacidade da Aula 10
+  só cobria a venda de passagem. Faltavam as duas outras portas para o mesmo estado
+  inválido: trocar o voo por uma aeronave menor e reduzir a capacidade de uma aeronave já
+  em operação. A segunda compara com o voo **mais cheio** da aeronave, não com um voo
+  qualquer.
+- **Auditoria com `AFTER UPDATE`.** Log de alteração de `status` e `portao` em `voo`, uma
+  linha por campo alterado, com valor anterior, posterior, data e usuário. A comparação usa
+  `<=>` e não `<>`, porque `portao` aceita `NULL` e `NULL <> NULL` é desconhecido — com
+  `<>` a liberação e a primeira atribuição de portão não entrariam no log.
+- **Sincronização com `AFTER INSERT`, `AFTER DELETE` e `AFTER UPDATE`.** Coluna derivada
+  `voo.passagens_vendidas` mantida pelo SGBD, incluindo o remanejamento de passagem entre
+  voos, que precisa decrementar um voo e incrementar outro no mesmo comando.
+
+A cadeia de triggers é o ponto delicado: o `AFTER INSERT` em `passagem` atualiza `voo`, o
+que dispara o `BEFORE UPDATE` de `voo`. As guardas `IF` são o que evita tanto o erro 1442
+quanto o disparo indevido das validações.
+
+A bateria de testes cobre os três desafios com recusa por `SIGNAL` (1644), aceitação do
+caso válido e os casos-limite de "exceder" contra "atingir". O contador derivado é
+conferido contra a contagem real voo a voo: 8 voos, 0 divergências.
+
+Um defeito foi encontrado e corrigido na execução: o `MESSAGE_TEXT` do `SIGNAL` aceita no
+máximo 128 caracteres, e uma das mensagens tinha 131. O MySQL não trunca — aborta com
+1648 e a recusa chega ao cliente sem explicação e com código trocado. As duas mensagens
+agora passam por `LEFT(..., 128)`.
+
+```bash
+mysql -u root -p < ../aula10-integridade/sql_integridade.sql
+mysql -u root -p --force < triggers.sql
+```
+
 ## Ambiente
 
 Python 3.12, sem dependências externas.
-MySQL 8.x para as Aulas 08, 09, 10 e 14, com o script da Aula 08 testado também
+MySQL 8.x para as Aulas 08, 09, 10, 14 e 15, com o script da Aula 08 testado também
 em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
-performance_schema ligado.
+performance_schema ligado. A Aula 15 foi executada em MySQL 8.0.46 em contêiner Docker
+(`mysql:8.0`).
