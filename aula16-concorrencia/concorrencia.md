@@ -31,7 +31,7 @@ Sem dependências externas: a entrega é o SQL e este documento. Os experimentos
 ## 1. Por que um banco separado
 
 O banco desta aula é o `aeroporto_concorrencia`, construído a partir do esquema sugerido
-pelo professor, e não do modelo individual que as Aulas 08 a 15 desenvolvem.
+pelo professor, em vez do modelo individual que as Aulas 08 a 15 desenvolvem.
 
 A razão é estrutural. O exercício inteiro gira em torno de bloquear **a linha de um
 assento** e reler o seu status depois do bloqueio. No modelo individual o assento não é
@@ -67,7 +67,7 @@ O enunciado é escrito em PostgreSQL e pede que as adaptações sejam feitas e j
 
 | Enunciado (PostgreSQL) | Neste arquivo (MySQL 8) | Por que |
 |---|---|---|
-| `BIGSERIAL` | `BIGINT AUTO_INCREMENT` | No MySQL o contador é propriedade da coluna, e não um objeto `SEQUENCE` separado |
+| `BIGSERIAL` | `BIGINT AUTO_INCREMENT` | No MySQL o contador é propriedade da coluna, sem objeto `SEQUENCE` separado |
 | `TIMESTAMP` | `DATETIME` | O `TIMESTAMP` do MySQL tem faixa 1970 a 2038 e converte para UTC e de volta conforme o fuso da sessão. `DATETIME` guarda o valor literal |
 | (sem cláusula) | `ENGINE = InnoDB` explícito | É o padrão no MySQL 8, mas nada nesta aula funciona sem ele: MyISAM não tem transação, nem bloqueio de linha, nem MVCC, e `FOR UPDATE` seria aceito e ignorado |
 | `CREATE UNIQUE INDEX ... WHERE status = 'CONFIRMADA'` | coluna gerada `STORED` + `UNIQUE` | Índice parcial é específico do PostgreSQL; o MySQL não tem índice com predicado |
@@ -127,7 +127,7 @@ chave estrangeira, um erro confuso e muito longe da causa. Por isso a variável 
 `DEFAULT NULL` e é testada.
 
 **`ROW_COUNT()` é lido imediatamente após o `UPDATE`.** Qualquer outro comando no meio o
-sobrescreve. É a primeira instrução depois do `UPDATE`, por necessidade e não por estilo.
+sobrescreve, e é por isso que a leitura dele é a primeira instrução depois do `UPDATE`.
 
 O `EXIT HANDLER FOR SQLEXCEPTION` faz `ROLLBACK` e `RESIGNAL`. O `RESIGNAL` é o que
 importa: sem ele o procedimento engoliria a falha e o cliente acharia que a reserva deu
@@ -300,14 +300,17 @@ Depois, restaurar a restrição com os passos 13 a 15 do A0.
  S1 | SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE
  S2 | SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE
  S1 | SELECT @@transaction_isolation   -> SERIALIZABLE
- S1 | SELECT status FROM assentos WHERE id = 1   -> DISPONIVEL
- S2 | SELECT status FROM assentos WHERE id = 1   -> DISPONIVEL
+ S1 | SELECT status FROM assentos WHERE id = 1   -> DISPONIVEL            (0.000s)
+ S2 | SELECT status FROM assentos WHERE id = 1   -> DISPONIVEL            (0.000s)
+ S1 | UPDATE assentos SET status = 'RESERVADO' WHERE id = 1   (bloqueia)  (0.313s)
  S2 | UPDATE assentos SET status = 'RESERVADO' WHERE id = 1
-      -> ERRO 1213: Deadlock found when trying to get lock   (0.000s)
- S1 | UPDATE assentos SET status = 'RESERVADO' WHERE id = 1   (0.313s)
+      -> ERRO 1213 (SQLSTATE 40001): Deadlock found when trying to get lock   (0.000s)
  S2 | ROLLBACK
  S1 | INSERT INTO reservas ... VALUES (1, 1, 'CONFIRMADA')
  S1 | COMMIT
+
+As linhas estão na ordem de INICIO de cada comando, igual ao roteiro numerado. O UPDATE de
+S1 começou primeiro e terminou em 0,313 s; o de S2 começou depois e falhou em 0,000 s.
 
 assentos: 10A=RESERVADO, 10B=DISPONIVEL, 10C=DISPONIVEL
 reservas confirmadas: 1
@@ -323,6 +326,14 @@ exclusiva sobre a linha que a outra ainda mantém em modo compartilhado, e nenhu
 soltar a sua enquanto a transação está aberta. As duas ficam esperando uma pela outra, e o
 InnoDB detecta o ciclo imediatamente.
 
+**Quem destrava S1 é o desfazimento automático da transação de S2.** No instante em que
+detecta o ciclo, o InnoDB desfaz a transação da vítima por conta própria, sem esperar
+comando do cliente. Esse desfazimento libera a trava compartilhada que S2 mantinha sobre a
+linha, e é o que permite ao UPDATE de S1 completar em 0,313 s. O `ROLLBACK` explícito de S2
+no passo 10 é formalidade do cliente, porque a transação dela já havia sido desfeita pelo
+servidor. O mesmo vale no D1, onde a vítima só libera as travas por causa desse
+desfazimento automático.
+
 O erro real é **1213**, o mesmo do D1. O MySQL sinaliza esse conflito como deadlock, por
 uma característica da implementação: o `SERIALIZABLE` dele é construído sobre
 travas de linha, e a falha de serialização chega ao cliente como deadlock. O PostgreSQL,
@@ -334,10 +345,10 @@ Nas três execuções deste roteiro a vítima foi sempre S2, diferente do D1. A 
 roteiro: aqui S1 pede a trava exclusiva primeiro e S2 é quem fecha o ciclo, então o InnoDB
 mata S2. No D1 as duas sessões disputam o mesmo instante e a escolha varia.
 
-A consequência prática está na resposta da pergunta 12: elevar o isolamento não elimina o
-tratamento de erro da aplicação, e sim troca o erro que ela precisa tratar. Sob
-`SERIALIZABLE` a reserva passa a falhar com 1213 em disputa normal, e o cliente precisa
-repetir a transação inteira.
+A consequência prática está na resposta da pergunta 12: elevar o isolamento troca o erro
+que a aplicação precisa tratar, e o tratamento continua necessário. Sob `SERIALIZABLE` a
+reserva passa a falhar com 1213 em disputa normal, e o cliente precisa repetir a transação
+inteira.
 
 ### 6.3 A1: disputa pelo mesmo assento com o procedimento
 
@@ -446,9 +457,9 @@ estado final: assentos 10A=RESERVADO, 10B=RESERVADO, 10C=DISPONIVEL
 
 **Leitura.** As duas com sucesso, nenhuma espera (0,016 s cada, contra os 2,015 s que S2
 esperou no A1 pelo mesmo assento). O `FOR UPDATE` do procedimento bloqueia **a linha do
-assento pedido**, e não a tabela nem o voo, então reservas de assentos diferentes correm em
-paralelo. É a granularidade correta: o custo do bloqueio é pago só por quem disputa o mesmo
-recurso.
+assento pedido**, deixando livres a tabela e os outros assentos do voo, então reservas de
+assentos diferentes correm em paralelo. É a granularidade correta: o custo do bloqueio é
+pago só por quem disputa o mesmo recurso.
 
 O Experimento F mostra que essa granularidade depende de o `WHERE` poder usar o índice, e
 o `WHERE` do procedimento usa o par `(voo_id, numero)` justamente por isso.
@@ -582,8 +593,13 @@ das duas estava em 5 s e não chegou a ser consultado. O InnoDB mantém um grafo
 detecta o fechamento do ciclo no instante em que a segunda requisição entra, sem precisar
 esperar. O 1205 depende de um tempo decorrido; o 1213 depende apenas do estado do grafo.
 
-**A transação da vítima foi desfeita inteira**, e não apenas o comando. Depois do 1213 não
-há o que continuar, e a vítima só pode recomeçar do zero.
+**A transação da vítima foi desfeita inteira.** O 1205 do 6.7 desfaz apenas o comando; o
+1213 desfaz tudo. Depois dele não há o que continuar, e a vítima só pode recomeçar do zero.
+
+O desfazimento é feito pelo próprio InnoDB, no instante da detecção e sem esperar comando
+do cliente. É ele que libera as travas da vítima, e é por isso que a sobrevivente obtém a
+linha que faltava no mesmo instante: na transcrição acima, S2 conseguiu o `id` 1 logo depois
+de S1 receber o 1213. O `ROLLBACK` da vítima no passo 11 é formalidade do cliente.
 
 **A escolha da vítima é do servidor, e isso foi observado.** Na execução transcrita acima a
 vítima foi S1. Em outra execução do mesmo roteiro, sem nenhuma alteração, a vítima foi
@@ -638,8 +654,8 @@ finalmente obteve o `id` 1, S1 já havia liberado o `id` 2 também.
 O ciclo do D1 não se formou porque não podia se formar. Com as duas sessões pedindo em
 ordem crescente de `id`, quem tem o `id` 1 nunca está esperando por quem tem o `id` 2: a
 espera aponta sempre na mesma direção, e um grafo de espera que aponta sempre para o mesmo
-lado não fecha ciclo. A contenção continua existindo, e a ordem única não promete eliminá-la.
-O que muda é que a espera passa a terminar sempre.
+lado não fecha ciclo. A contenção continua existindo, porque a ordem única atua apenas
+sobre a formação do ciclo. O que muda é que a espera passa a terminar sempre.
 
 Comparando D1 e D2: mesma carga, mesmos recursos, mesma contenção, e a única variável é a
 ordem de aquisição. É a prova da resposta da **pergunta 9** da seção 8.
@@ -731,8 +747,8 @@ exatamente **1** reserva confirmada.
 
 **Leitura.** O `WHERE` muda o **escopo do bloqueio** e preserva a correção do resultado.
 
-O InnoDB bloqueia as linhas que precisou **examinar** para avaliar o `WHERE`, e não apenas
-a linha que o `WHERE` descreve. A tabela tem `UNIQUE (voo_id, numero)`, e `numero` não é
+O InnoDB bloqueia todas as linhas que precisou **examinar** para avaliar o `WHERE`,
+incluindo as que não casaram com ele. A tabela tem `UNIQUE (voo_id, numero)`, e `numero` não é
 prefixo à esquerda desse índice, então `WHERE numero = '10A'` não tem acesso direto e vira
 varredura do índice inteiro, `type=index` com `rows=3`, travando tudo que passou pelo
 caminho, inclusive o 10B e o 10C. Com o par completo, o acesso é `type=const` com
@@ -795,13 +811,13 @@ errado no PostgreSQL no dia em que alguém subisse o isolamento.
 
 ## 8. Respostas às perguntas da seção 20 do enunciado
 
-**1. Por que uma consulta simples não é suficiente para verificar a disponibilidade de um
-assento?** Porque o valor lido pode deixar de ser verdadeiro antes de a escrita acontecer.
+**1. Por que uma consulta simples de disponibilidade não é suficiente para proteger uma
+reserva?** Porque o valor lido pode deixar de ser verdadeiro antes de a escrita acontecer.
 No A0 as duas sessões executaram `SELECT status` e as duas leram `DISPONIVEL`; a segunda
 leitura já estava errada no instante em que foi feita. As duas prosseguiram e o assento foi
 confirmado duas vezes, sem erro em nenhum dos doze passos.
 
-**2. Qual é a finalidade do `SELECT ... FOR UPDATE`?** Tomar trava exclusiva sobre a linha
+**2. Qual é a finalidade do FOR UPDATE?** Tomar trava exclusiva sobre a linha
 antes de decidir, para que a sessão possa ler o estado atual e escrever sem que ninguém
 mude a linha no meio. No procedimento ele tem duas finalidades concretas que o `UPDATE`
 condicional sozinho não atende. A primeira é distinguir "o assento não existe" de "o
@@ -818,13 +834,14 @@ nas duas medições. A espera de quem aguarda também pode terminar antes disso 
 dela, quando o `innodb_lock_wait_timeout` estoura: no C, S2 abortou em 2,109 s com o limite
 em 2 s, enquanto S1 ainda mantinha o bloqueio.
 
-**4. O que acontece com a segunda sessão que tenta reservar o mesmo assento?** Ela fica
+**4. O que acontece com a segunda sessão enquanto a primeira mantém o bloqueio?** Ela fica
 parada no `SELECT ... FOR UPDATE`, sem erro e sem resposta, até a primeira terminar. No A1
 esperou 2,015 s, e no B a espera acompanhou exatamente o tempo de retenção. Ao destravar,
 ela relê o status, encontra `RESERVADO` e é recusada com 1644.
 
-**5. Por que revalidar o status depois do bloqueio?** Porque a sessão que esperou começou a
-esperar num mundo em que o assento estava livre e acordou noutro. O valor que ela tinha
+**5. Por que a segunda transação precisa validar novamente o status do assento?** Porque a
+sessão que esperou começou a esperar num mundo em que o assento estava livre e acordou
+noutro. O valor que ela tinha
 antes do bloqueio está velho. No A1, a recusa vem exatamente dessa releitura, que devolveu
 `RESERVADO`. A revalidação precisa ser feita com `FOR UPDATE`: o E mostra que, em
 `REPEATABLE READ`, um `SELECT` comum na mesma transação ainda devolveria `DISPONIVEL`, e a
@@ -851,15 +868,15 @@ enquanto S2 tomou o `id` 2 e pediu o `id` 1. O ciclo fechou no instante em que a
 requisição entrou, e o InnoDB o detectou em 0,015 s, sem consultar o tempo de espera. A
 transação da vítima foi desfeita inteira.
 
-**9. Por que adquirir os bloqueios na mesma ordem reduz a chance de deadlock?** Porque o
+**9. Por que adquirir bloqueios sempre na mesma ordem pode reduzir deadlocks?** Porque o
 ciclo deixa de ser possível. O D2 é o mesmo cenário do D1, com os mesmos dois assentos e a
 mesma contenção, mudando só a ordem: com as duas sessões pedindo em ordem crescente de
 `id`, não houve deadlock nenhum, S2 esperou 0,500 s e as duas confirmaram. Em ordem
 invertida, o D1 deu 1213 em 0,015 s. Com todas as transações pedindo na mesma ordem, a
 espera aponta sempre na mesma direção, e um grafo de espera com direção única não fecha
-ciclo. A contenção continua, e o que desaparece é o ciclo.
+ciclo. A contenção continua existindo, e o ciclo deixa de se formar.
 
-**10. Qual é a diferença entre `READ COMMITTED`, `REPEATABLE READ` e `SERIALIZABLE`?** Os
+**10. Qual é a diferença entre READ COMMITTED, REPEATABLE READ e SERIALIZABLE?** Os
 três diferem no que uma leitura vê e em quantas travas ela toma, medido na seção 7. Em
 `READ COMMITTED` cada comando pega um retrato novo, e no E a segunda leitura já viu
 `RESERVADO`; no F as travas das linhas que não casam com o `WHERE` são liberadas após a
@@ -872,34 +889,55 @@ adaptação registrada na seção 2 depende dessa diferença: o padrão do MySQL
 `REPEATABLE READ` e o do PostgreSQL é `READ COMMITTED`, então o mesmo código muda de
 comportamento ao ser portado sem ajuste.
 
-**11. Por que manter uma restrição `UNIQUE` mesmo havendo validação na aplicação?** Porque
-a validação da aplicação só vale para quem passa por ela, e não impede a corrida nem quando
-passa. O A0 mostra as duas falhas juntas: sem a `UNIQUE`, duas sessões que fizeram a
+**11. Por que uma restrição UNIQUE pode ser importante mesmo quando a aplicação já valida
+a disponibilidade?** Porque
+a validação da aplicação só vale para quem passa por ela, e mesmo aí deixa a corrida
+acontecer. O A0 mostra as duas falhas juntas: sem a `UNIQUE`, duas sessões que fizeram a
 verificação correta em SQL confirmaram o mesmo assento. O A2 mostra a restrição agindo
 sozinha contra um cliente que não usa o procedimento, não abre transação e não bloqueia
 nada, recusando o segundo `INSERT` com 1062. Das quatro camadas da seção 3, a `UNIQUE` é a
 única que vale fora do procedimento.
 
-**12. Como tratar deadlock e falha de serialização na aplicação?** O 1213 e o erro de
-serialização desfazem a transação inteira, então o tratamento é repetir a transação
-completa, do `START TRANSACTION` em diante, com limite de tentativas e espera crescente
-entre elas, para não transformar a repetição em nova fonte de contenção. Não faz sentido
+**12. Como a aplicação deve tratar uma transação abortada por deadlock ou falha de
+serialização?** O 1213 e o erro de serialização desfazem a transação inteira, então o
+tratamento é repetir a transação completa, do `START TRANSACTION` em diante, com limite de
+tentativas e espera crescente entre elas, para não transformar a repetição em nova fonte
+de contenção. Não faz sentido
 repetir apenas o comando que falhou, porque a transação em que ele estava já não existe. O
 1205 é diferente: no C, a transação de S2 continuou viva depois do erro e um `SELECT`
 seguinte funcionou, o que deixa o cliente decidir entre repetir só o comando, seguir por
 outro caminho ou desfazer. Tratar os dois com o mesmo `catch` erra nas duas direções:
 repetir só o comando após um 1213 opera numa transação que não existe mais, e refazer tudo
-após um 1205 joga fora trabalho válido. A vítima do deadlock é escolhida pelo servidor e
-mudou entre execuções do D1, então as duas pontas precisam do mesmo tratamento. Elevar o
-isolamento não dispensa esse código: o A0′ mostra a reserva falhando com 1213 em disputa
-normal sob `SERIALIZABLE`.
+após um 1205 joga fora trabalho válido.
+
+O critério para separar os dois na aplicação é o SQLSTATE, conferido na saída deste
+servidor:
+
+```
+1213 -> errno=1213 SQLSTATE=40001  Deadlock found when trying to get lock
+1205 -> errno=1205 SQLSTATE=HY000  Lock wait timeout exceeded
+```
+
+O 40001 é o SQLSTATE que o padrão SQL reserva para falha de serialização, e é o mesmo que o
+PostgreSQL devolve nesse caso. Uma rotina de repetição que dispare por
+`SQLSTATE = '40001'` cobre os dois bancos com o mesmo código, sem depender do número de
+erro proprietário. Os dois valores do bloco acima foram lidos deste servidor; o lado do
+PostgreSQL vem do padrão e **não foi medido**, pela mesma razão registrada na seção 7.
+
+O 1205 traz HY000, que é o SQLSTATE genérico do MySQL, e fica fora dessa repetição
+automática pelo motivo acima: a transação dele continua viva e quem decide o que fazer é o
+cliente.
+
+A vítima do deadlock é escolhida pelo servidor e mudou entre execuções do D1, então as duas
+pontas precisam do mesmo tratamento. Esse código continua necessário com isolamento mais
+alto: o A0′ mostra a reserva falhando com 1213 em disputa normal sob `SERIALIZABLE`.
 
 ## 9. Conclusões
 
 1. **A corrida é real e silenciosa.** Sem restrição, duas sessões confirmaram o mesmo
    assento sem um único erro (A0). Nenhuma das duas tinha como perceber, porque cada uma,
-   isolada, fez tudo certo. É o cenário que só aparece com duas sessões, e nunca em teste
-   sequencial.
+   isolada, fez tudo certo. É o cenário que só aparece com duas sessões, fora do alcance de
+   um teste sequencial.
 2. **A restrição declarativa é a única camada que vale sempre.** As três camadas de
    aplicação protegem quem usa o procedimento, e a `UNIQUE (assento_ativo)` protege contra
    quem não usa (A2). Se apenas uma pudesse ser mantida, seria ela.
