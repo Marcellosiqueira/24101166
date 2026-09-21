@@ -140,6 +140,24 @@ USE aeroporto;
 --
 -- OLD e NEW sao usados juntos: OLD para detectar a troca, NEW para saber qual
 -- aeronave sera validada.
+--
+-- POR QUE v_capacidade NAO TEM DEFAULT 0:
+--
+-- Se NEW.id_aeronave apontar para uma aeronave que nao existe, o
+-- SELECT ... INTO nao acha linha nenhuma. No MySQL isso nao e erro: gera aviso
+-- e deixa a variavel como estava. Com DEFAULT 0, v_capacidade valia 0, a
+-- comparacao v_vendidas > 0 era verdadeira para qualquer voo com passagem
+-- vendida, e a trigger recusava com 1644 dizendo "aeronave 9999 tem 0
+-- assentos". A mensagem e falsa e o codigo e o errado: o problema nao esta na
+-- capacidade, esta na chave estrangeira, e quem deve recusar e a
+-- fk_voo_aeronave com o erro 1452.
+--
+-- Isso acontece porque a trigger BEFORE roda ANTES da verificacao de chave
+-- estrangeira: ela sinaliza primeiro e o 1452 nunca chega ao cliente.
+--
+-- Com DEFAULT NULL e a guarda IS NOT NULL, a trigger nao opina sobre aeronave
+-- que nao existe. Ela deixa passar, o InnoDB tenta gravar, a FK recusa e o
+-- cliente recebe o 1452 correto. O teste T1.2b cobre esse caminho.
 
 DROP TRIGGER IF EXISTS trg_voo_capacidade_update;
 
@@ -149,7 +167,7 @@ CREATE TRIGGER trg_voo_capacidade_update
 BEFORE UPDATE ON voo
 FOR EACH ROW
 BEGIN
-    DECLARE v_capacidade INT DEFAULT 0;
+    DECLARE v_capacidade INT DEFAULT NULL;
     DECLARE v_vendidas   INT DEFAULT 0;
     DECLARE v_msg        VARCHAR(255);
 
@@ -165,7 +183,9 @@ BEGIN
           FROM passagem p
          WHERE p.id_voo = OLD.id_voo;
 
-        IF v_vendidas > v_capacidade THEN
+        -- v_capacidade NULL significa aeronave inexistente: a recusa e da
+        -- chave estrangeira (1452), nao desta trigger.
+        IF v_capacidade IS NOT NULL AND v_vendidas > v_capacidade THEN
             SET v_msg = LEFT(CONCAT(
                 'Troca recusada: voo ', OLD.id_voo, ' tem ', v_vendidas,
                 ' passagens, aeronave ', NEW.id_aeronave, ' tem ',
@@ -633,6 +653,18 @@ SELECT v.id_voo, v.id_aeronave, a.prefixo, a.capacidade_assentos, v.passagens_ve
 UPDATE voo SET id_aeronave = 2 WHERE id_voo = 8;
 
 
+SELECT '--- T1.2b INVALIDO POR OUTRO MOTIVO: por no voo 1 uma aeronave que NAO EXISTE (9999). Esperado: ERRO 1452 da chave estrangeira, e NAO 1644 da trigger ---' AS teste;
+
+-- A trigger nao deve opinar aqui. Com v_capacidade DEFAULT 0 ela recusava com
+-- 1644 "aeronave 9999 tem 0 assentos", escondendo a causa real e devolvendo o
+-- codigo errado. Com DEFAULT NULL e a guarda IS NOT NULL, a validacao de
+-- capacidade e ignorada e quem recusa e a fk_voo_aeronave.
+UPDATE voo SET id_aeronave = 9999 WHERE id_voo = 1;
+
+-- Contraprova: o voo 1 continua com a aeronave original.
+SELECT id_voo, id_aeronave, passagens_vendidas FROM voo WHERE id_voo = 1;
+
+
 -- =============================================================================
 -- 5.2 DESAFIO 1 - trg_aeronave_capacidade_update (reducao de capacidade)
 -- =============================================================================
@@ -810,7 +842,8 @@ SELECT r.numero_voo,
 -- Resumo do que foi demonstrado:
 --   D1  duas portas dos fundos da regra de capacidade da Aula 10 fechadas,
 --       com recusa por SIGNAL (1644) e aceitacao do caso valido, inclusive no
---       limite exato (T1.5 e T1.6).
+--       limite exato (T1.5 e T1.6). A trigger tambem se cala quando a aeronave
+--       nao existe, deixando a chave estrangeira recusar com 1452 (T1.2b).
 --   D2  auditoria de status e portao com OLD e NEW, incluindo a transicao a
 --       partir de NULL que o operador <> perderia, e nenhum registro quando
 --       nada muda de fato.
