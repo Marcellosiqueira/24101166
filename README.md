@@ -18,6 +18,7 @@ materiais do professor.
 | 10 | Restrições de integridade | [`aula10-integridade/`](aula10-integridade/) |
 | 14 | Views e índices | [`aula14-views-indices/`](aula14-views-indices/) |
 | 15 | Triggers | [`aula15-triggers/`](aula15-triggers/) |
+| 16 | Locking, deadlocks e MVCC | [`aula16-concorrencia/`](aula16-concorrencia/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -197,10 +198,49 @@ mysql -u root -p < ../aula10-integridade/sql_integridade.sql
 mysql -u root -p --force < triggers.sql
 ```
 
+## Aula 16 — Locking, deadlocks e MVCC
+
+Controle de concorrência em reserva de assentos, no banco separado
+`aeroporto_concorrencia`: o esquema sugerido pelo professor, adaptado de PostgreSQL para
+MySQL. O banco é outro porque no modelo individual o assento é uma coluna de texto dentro
+de `passagem`, e não existe linha de assento para bloquear.
+
+O `sp_reservar_assento` defende a reserva em quatro camadas: `SELECT ... FOR UPDATE`,
+revalidação após o bloqueio, `UPDATE` condicional com `ROW_COUNT()` e a `UNIQUE` de uma
+coluna gerada — substituta do índice único parcial do PostgreSQL, que o MySQL não tem.
+Só a última vale para um cliente que ignore o procedimento.
+
+Os experimentos rodam em `harness.py`, que abre **duas conexões TCP reais**, cada uma na
+sua thread, com a ordem dos passos garantida por barreiras. Seis experimentos medidos:
+
+| # | Cenário | Resultado |
+|---|---|---|
+| A1 | Disputa pelo procedimento | A perdedora esperou 2,015 s e foi recusada na revalidação (1644) |
+| A2 | Só a `UNIQUE`, sem procedimento | Duplicidade barrada (1062); cancelar a reserva reabriu a vaga |
+| B | Duração da espera | 1,000 s e 3,000 s para retenções de 1,0 s e 3,0 s (+0,000 s) |
+| C | Espera esgotada | 1205 em 2,078 s com limite de 2 s, e a transação **sobreviveu** |
+| D | Deadlock | 1213 em 0,000 s, transação da vítima desfeita **inteira** |
+| E | MVCC | Mesma transação: `SELECT` simples devolveu `DISPONIVEL`, `FOR UPDATE` devolveu `RESERVADO` |
+| F | Alcance do bloqueio | `WHERE` sem índice bloqueou 3 linhas em vez de 1 e serializou assentos independentes |
+
+O Experimento F não estava previsto: nasceu de um defeito real no Experimento D, que
+filtrava por `numero` sem `voo_id`, não conseguia usar o índice, bloqueava a tabela toda e
+por isso nunca formava ciclo. O harness também não conferia o erro do primeiro bloqueio e
+imprimia sucesso sobre um 1205 — o vazio de 52 s na timeline foi a única pista. A
+conclusão que ficou: índice também é requisito de correção da concorrência, não só de
+desempenho.
+
+```bash
+mysql -u root -p < concorrencia.sql
+python harness.py
+```
+
 ## Ambiente
 
-Python 3.12, sem dependências externas.
-MySQL 8.x para as Aulas 08, 09, 10, 14 e 15, com o script da Aula 08 testado também
+Python 3.12. As Aulas 03, 04 e 15 não usam nada externo; a Aula 16 depende de
+`mysql-connector-python`, porque o cliente `mysql` de linha de comando executa um script
+inteiro numa única sessão e não permite intercalar duas.
+MySQL 8.x para as Aulas 08, 09, 10, 14, 15 e 16, com o script da Aula 08 testado também
 em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
-performance_schema ligado. A Aula 15 foi executada em MySQL 8.0.46 em contêiner Docker
-(`mysql:8.0`).
+performance_schema ligado. As Aulas 15 e 16 foram executadas em MySQL 8.0.46 em contêiner
+Docker (`mysql:8.0`); a Aula 16 exige InnoDB, e nada nela funciona sob MyISAM.
