@@ -190,8 +190,10 @@ conferido contra a contagem real voo a voo: 8 voos, 0 divergências.
 
 Um defeito foi encontrado e corrigido na execução: o `MESSAGE_TEXT` do `SIGNAL` aceita no
 máximo 128 caracteres, e uma das mensagens tinha 131. O MySQL não trunca — aborta com
-1648 e a recusa chega ao cliente sem explicação e com código trocado. As duas mensagens
-agora passam por `LEFT(..., 128)`.
+1648, e a recusa chega ao cliente sem explicação e com o código trocado. As duas mensagens
+foram reescritas para caber com folga (64 e 58 caracteres com os ids do banco de exemplo),
+e o `LEFT(..., 128)` ficou apenas como guarda para ids longos: não é ele que faz as
+mensagens caberem.
 
 ```bash
 mysql -u root -p < ../aula10-integridade/sql_integridade.sql

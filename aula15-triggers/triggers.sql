@@ -112,6 +112,23 @@ USE aeroporto;
 
 
 -- -----------------------------------------------------------------------------
+-- O LIMITE DE 128 CARACTERES DO MESSAGE_TEXT
+--
+-- O MESSAGE_TEXT do SIGNAL aceita no maximo 128 caracteres, e passar disso NAO
+-- trunca: o MySQL aborta com erro 1648 ("Data too long for condition item").
+-- O efeito pratico e o pior possivel para uma recusa - o cliente recebe um
+-- codigo que nao e o 1644 previsto e perde a explicacao do motivo. Foi o que
+-- aconteceu na primeira execucao deste arquivo, com uma mensagem de 131
+-- caracteres.
+--
+-- As duas mensagens abaixo foram reescritas para caber com folga: 64 e 58
+-- caracteres com os ids do banco de exemplo, o que deixa mais de 60 de margem
+-- para ids maiores. O LEFT(..., 128) permanece como GUARDA - nao e ele que faz
+-- as mensagens caberem, e sim o texto curto. Ele existe para o caso extremo de
+-- ids muito longos num banco de producao, onde e melhor uma mensagem cortada
+-- do que um 1648 no lugar da recusa.
+
+
 -- 1.1 trg_voo_capacidade_update - porta 1, troca de aeronave
 -- -----------------------------------------------------------------------------
 -- A verificacao so roda quando id_aeronave REALMENTE muda
@@ -150,9 +167,9 @@ BEGIN
 
         IF v_vendidas > v_capacidade THEN
             SET v_msg = LEFT(CONCAT(
-                'Troca de aeronave recusada: o voo ', OLD.id_voo,
-                ' tem ', v_vendidas, ' passagens vendidas e a aeronave ',
-                NEW.id_aeronave, ' tem apenas ', v_capacidade, ' assentos'), 128);
+                'Troca recusada: voo ', OLD.id_voo, ' tem ', v_vendidas,
+                ' passagens, aeronave ', NEW.id_aeronave, ' tem ',
+                v_capacidade, ' assentos'), 128);
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
 
@@ -202,16 +219,9 @@ BEGIN
          LIMIT 1;
 
         IF v_vendidas > NEW.capacidade_assentos THEN
-            -- MESSAGE_TEXT do SIGNAL aceita no maximo 128 caracteres. Passar
-            -- disso nao trunca: o MySQL aborta com erro 1648 ("Data too long
-            -- for condition item") e a recusa chega ao cliente sem a
-            -- explicacao, com codigo trocado. A mensagem abaixo foi escrita
-            -- para caber, e o LEFT garante o limite mesmo com ids longos.
             SET v_msg = LEFT(CONCAT(
-                'Reducao recusada: aeronave ', OLD.id_aeronave,
-                ' opera o voo ', v_voo, ' com ', v_vendidas,
-                ' passagens vendidas, acima da nova capacidade de ',
-                NEW.capacidade_assentos), 128);
+                'Reducao recusada: voo ', v_voo, ' tem ', v_vendidas,
+                ' passagens, capacidade nova ', NEW.capacidade_assentos), 128);
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
         END IF;
 
