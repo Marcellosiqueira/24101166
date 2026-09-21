@@ -212,36 +212,47 @@ revalidação após o bloqueio, `UPDATE` condicional com `ROW_COUNT()` e a `UNIQ
 coluna gerada — substituta do índice único parcial do PostgreSQL, que o MySQL não tem.
 Só a última vale para um cliente que ignore o procedimento.
 
-Os experimentos rodam em `harness.py`, que abre **duas conexões TCP reais**, cada uma na
-sua thread, com a ordem dos passos garantida por barreiras. Seis experimentos medidos:
+Onze experimentos, cada um com **duas sessões simultâneas** e o passo a passo publicado
+comando por comando, para ser reproduzido à mão em duas abas do MySQL Workbench:
 
 | # | Cenário | Resultado |
 |---|---|---|
+| A0 | Corrida sem restrição | **Duas reservas confirmadas para o mesmo assento**, sem erro em nenhum passo |
 | A1 | Disputa pelo procedimento | A perdedora esperou 2,015 s e foi recusada na revalidação (1644) |
 | A2 | Só a `UNIQUE`, sem procedimento | Duplicidade barrada (1062); cancelar a reserva reabriu a vaga |
+| A3 | Assentos diferentes, ao mesmo tempo | As duas com sucesso e **sem espera** (0,016 s cada) |
 | B | Duração da espera | 1,000 s e 3,000 s para retenções de 1,0 s e 3,0 s (+0,000 s) |
-| C | Espera esgotada | 1205 em 2,078 s com limite de 2 s, e a transação **sobreviveu** |
-| D | Deadlock | 1213 em 0,000 s, transação da vítima desfeita **inteira** |
-| E | MVCC | Mesma transação: `SELECT` simples devolveu `DISPONIVEL`, `FOR UPDATE` devolveu `RESERVADO` |
-| F | Alcance do bloqueio | `WHERE` sem índice bloqueou 3 linhas em vez de 1 e serializou assentos independentes |
+| C | Espera esgotada | 1205 em 2,109 s com limite de 2 s, e a transação **sobreviveu** |
+| D1 | Deadlock, ordem invertida | 1213 em 0,015 s, transação da vítima desfeita **inteira** |
+| D2 | Ordem crescente de `id` | **Nenhum deadlock**: S2 esperou 0,500 s e as duas confirmaram |
+| E | MVCC em `REPEATABLE READ` | Mesma transação: `SELECT` simples `DISPONIVEL`, `FOR UPDATE` `RESERVADO` |
+| E′ | MVCC em `READ COMMITTED` | O `SELECT` simples já devolveu `RESERVADO` |
+| F | Escopo do bloqueio | `WHERE` sem índice travou 3 linhas em vez de 1; em `READ COMMITTED` as travas que não casam são liberadas |
 
-O Experimento F não estava previsto: nasceu de um defeito real no Experimento D, que
-filtrava por `numero` sem `voo_id`, não conseguia usar o índice, bloqueava a tabela toda e
-por isso nunca formava ciclo. O harness também não conferia o erro do primeiro bloqueio e
-imprimia sucesso sobre um 1205 — o vazio de 52 s na timeline foi a única pista. A
-conclusão que ficou: índice também é requisito de correção da concorrência, não só de
-desempenho.
+O A0 abre a série de propósito: sem a `UNIQUE`, as duas sessões leem `DISPONIVEL` com
+`SELECT` comum e as duas confirmam o mesmo assento, **sem um único erro**. É o desfecho
+contra o qual as quatro camadas existem, e sem ele o teste que mostra a `UNIQUE` recusando
+não prova que ela é necessária.
+
+O D1 e o D2 são o mesmo cenário com a ordem de aquisição trocada, e são a prova da
+resposta sobre prevenção de deadlock: em ordem invertida há 1213 imediato; em ordem
+crescente de `id` o ciclo não pode se formar e as duas transações terminam.
+
+O F trata de **escopo de bloqueio**, não de correção. Sem índice utilizável o `FOR UPDATE`
+trava todas as linhas varridas, mas a reserva continua saindo certa — verificado nos
+quatro cenários. O que se degrada é concorrência: reservas de assentos independentes
+passam a se bloquear, aumentando espera, risco de 1205 e chance de deadlock. O custo é
+maior em `REPEATABLE READ`, onde as travas da varredura são retidas até o fim da
+transação; em `READ COMMITTED` o InnoDB libera as travas das linhas que não casam com o
+`WHERE` depois de avaliá-las.
 
 ```bash
 mysql -u root -p < concorrencia.sql
-python harness.py
 ```
 
 ## Ambiente
 
-Python 3.12. As Aulas 03, 04 e 15 não usam nada externo; a Aula 16 depende de
-`mysql-connector-python`, porque o cliente `mysql` de linha de comando executa um script
-inteiro numa única sessão e não permite intercalar duas.
+Python 3.12, sem dependências externas.
 MySQL 8.x para as Aulas 08, 09, 10, 14, 15 e 16, com o script da Aula 08 testado também
 em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
 performance_schema ligado. As Aulas 15 e 16 foram executadas em MySQL 8.0.46 em contêiner

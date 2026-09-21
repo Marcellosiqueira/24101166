@@ -43,8 +43,9 @@
 --
 --   Nivel de isolamento padrao: REPEATABLE READ no MySQL, READ COMMITTED no
 --   PostgreSQL. Nao e uma adaptacao de sintaxe, e uma diferenca de
---   comportamento, e muda a analise do Experimento E (MVCC). Registrada aqui
---   e desenvolvida em concorrencia.md, secao 6.
+--   comportamento, e muda o que os Experimentos E e F observam. Os dois foram
+--   rodados nos DOIS niveis por causa disso, e a comparacao esta em
+--   concorrencia.md, secao 7.
 --
 -- Testado em MySQL 8.0.46 (contêiner Docker mysql:8.0).
 -- =============================================================================
@@ -166,7 +167,9 @@ CREATE TABLE assentos (
 --
 -- Esta restricao e a ULTIMA barreira da estrategia em camadas: ela vale mesmo
 -- para um cliente que nao use o procedimento, nao abra transacao e nao bloqueie
--- nada. O Experimento A2 mostra ela agindo sozinha, com erro 1062.
+-- nada. O Experimento A2 mostra ela agindo sozinha, com erro 1062, e o
+-- Experimento A0 mostra o que acontece sem ela: duas sessoes confirmam o mesmo
+-- assento sem erro nenhum.
 
 CREATE TABLE reservas (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
