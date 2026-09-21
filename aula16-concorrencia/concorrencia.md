@@ -492,10 +492,10 @@ LOCK WAIT 3 lock struct(s), heap size 1128, 2 row lock(s)
 **Leitura.** Duas diferenças em relação ao 1205, e as duas aparecem na saída.
 
 **O tempo foi 0,015 s.** Nenhuma das sessões esperou de fato. O `innodb_lock_wait_timeout`
-das duas estava em 5 s e não chegou a ser consultado — o InnoDB não espera para descobrir que há um
-ciclo, ele mantém um grafo de espera e detecta o fechamento no instante em que a segunda
-requisição entra. Espera esgotada é um palpite sobre o futuro; deadlock é um fato presente
-no grafo.
+das duas estava em 5 s e não chegou a ser consultado — o InnoDB não espera para descobrir
+que há um ciclo: ele mantém um grafo de espera e detecta o fechamento no instante em que a
+segunda requisição entra. Espera esgotada é um palpite sobre o futuro; deadlock é um fato
+presente no grafo.
 
 **A transação da vítima foi desfeita inteira**, não apenas o comando. Depois do 1213 não há
 o que continuar: a vítima só pode recomeçar do zero.
@@ -503,11 +503,12 @@ o que continuar: a vítima só pode recomeçar do zero.
 **Quem morre não é escolhido pelo programador, e isso foi observado.** Na execução
 transcrita acima a vítima foi S1; em outra execução do mesmo roteiro, sem nenhuma
 alteração, a vítima foi **S2** e S1 sobreviveu. Nem a ordem em que os passos 7 e 8 chegam
-ao servidor é estável: as duas sessões disputam o mesmo instante. O InnoDB escolhe a transação com
-menos trabalho a desfazer, e com as duas sessões fazendo trabalho equivalente o resultado
-varia entre execuções. Nenhuma das duas pode assumir que vai ser a sobrevivente: as duas
-precisam do mesmo tratamento de erro. Não foi medida a frequência de cada desfecho — a
-afirmação é só a de que a escolha é do servidor e que ela de fato mudou.
+ao servidor é estável: as duas sessões disputam o mesmo instante. O InnoDB escolhe a
+transação com menos trabalho a desfazer, e com as duas fazendo trabalho equivalente o
+resultado varia entre execuções. Nenhuma das duas pode assumir que vai ser a
+sobrevivente: as duas precisam do mesmo tratamento de erro. Não foi medida a frequência
+de cada desfecho — a afirmação é só a de que a escolha é do servidor e que ela de fato
+mudou.
 
 ### 6.8 D2 — a mesma disputa, em ordem crescente de `id`
 
@@ -656,8 +657,8 @@ pelo caminho, inclusive no 10B e no 10C. Com o par completo, o acesso é `type=c
 **O resultado continua correto no cenário ruim**, e isso é importante para não tirar a
 conclusão errada. Nenhuma reserva sai dobrada, nenhum assento fica inconsistente: as quatro
 camadas da seção 3 continuam valendo, e a verificação acima confirma. O que se perde é
-**concorrência**. Reservas de assentos diferentes, que no A3 correram em paralelo em 0,000 s
-e 0,015 s, passam a se bloquear mutuamente. As consequências práticas são três, todas já
+**concorrência**. Reservas de assentos diferentes, que no A3 correram em paralelo em
+0,016 s cada, passam a se bloquear mutuamente. As consequências práticas são três, todas já
 medidas em outros experimentos deste documento:
 
 - **mais espera** — o concorrente fica parado pelo tempo da transação alheia (B);
@@ -727,8 +728,8 @@ perdedora descobre o problema na revalidação, antes de escrever. Além disso, 
 existe ponto seguro para reler o status (E).
 
 **4. Duas reservas de assentos diferentes se atrapalham?** Não. Dois passageiros chamando o
-procedimento ao mesmo tempo para 10A e 10B terminaram os dois com sucesso, em 0,000 s e
-0,015 s, sem espera (A3). O bloqueio é da linha do assento, não do voo.
+procedimento ao mesmo tempo para 10A e 10B terminaram os dois com sucesso, em 0,016 s
+cada, sem espera (A3). O bloqueio é da linha do assento, não do voo.
 
 **5. A espera é indefinida?** Não. Ela termina no `COMMIT` da outra sessão — diferença de
 0,000 s nas duas medições do B — ou no `innodb_lock_wait_timeout`, que abortou o comando em
