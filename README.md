@@ -19,6 +19,7 @@ materiais do professor.
 | 14 | Views e índices | [`aula14-views-indices/`](aula14-views-indices/) |
 | 15 | Triggers | [`aula15-triggers/`](aula15-triggers/) |
 | 16 | Locking, deadlocks e MVCC | [`aula16-concorrencia/`](aula16-concorrencia/) |
+| 20 | Front + Back: MySQL, PHP e JavaScript | [`aula20-front-back/`](aula20-front-back/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -261,6 +262,35 @@ transação; em `READ COMMITTED` o InnoDB libera as travas das linhas que não c
 mysql -u root -p < concorrencia.sql
 ```
 
+## Aula 20: Front + Back
+
+Página que lista alunos, notas e status acadêmico, com MySQL no banco, PHP com PDO na
+API e JavaScript com `fetch()` no navegador. Há duas versões lado a lado, cada página com
+link para a outra:
+
+- **versão inicial** (`index-v1.html`): `alunos-v1.php` devolve só id, nome e nota, e o
+  `app-v1.js` decide quem está aprovado;
+- **versão final** (`index.html`): `alunos.php` calcula o status com a constante
+  `NOTA_MINIMA_APROVACAO`, e o `app.js` só exibe o que recebeu.
+
+As duas usam o mesmo `tabela.js` para montar a tabela, então a única diferença entre elas é
+onde a regra de aprovação mora. O README da aula conclui que o lugar certo é o backend, por
+segurança, reutilização entre clientes, consistência, manutenção e responsabilidade de cada
+camada.
+
+Os seis registros incluem os dois lados exatos da regra de nota maior ou igual a 7:
+Carlos Mendes com 7,00 sai aprovado e Fernanda Rocha com 6,99 sai reprovada. A tabela tem
+`CHECK (nota BETWEEN 0 AND 10)`. O PHP converte a nota com `(float)`, porque o PDO devolve
+`DECIMAL` como texto; em caso de falha a API responde HTTP 500 com mensagem genérica e
+deixa o detalhe no log do servidor. O nome entra na tabela por `textContent`, o que impede
+que HTML cadastrado no banco seja executado na página.
+
+```bash
+mysql -u root < banco/alunos.sql
+```
+
+Depois, copiar a pasta para `C:\laragon\www\` e abrir `http://localhost/aula20-front-back/`.
+
 ## Ambiente
 
 Python 3.12, sem dependências externas.
@@ -268,3 +298,4 @@ MySQL 8.x para as Aulas 08, 09, 10, 14, 15 e 16, com o script da Aula 08 testado
 em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
 performance_schema ligado. As Aulas 15 e 16 foram executadas em MySQL 8.0.46 em contêiner
 Docker (`mysql:8.0`); a Aula 16 exige InnoDB, e nada nela funciona sob MyISAM.
+A Aula 20 roda no Laragon, com PHP e a extensão `pdo_mysql`.

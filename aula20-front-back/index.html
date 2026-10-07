@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alunos, notas e status</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: left; }
+  th { background: #f3f3f3; }
+  td:nth-child(2), th:nth-child(2) { text-align: right; }
+  .aprovado { color: #1a7f37; font-weight: 600; }
+  .reprovado { color: #c62828; font-weight: 600; }
+  #aviso { color: #666; font-size: .9rem; margin-top: 12px; }
+  nav a { font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1>Alunos, notas e status</h1>
+<p class="sub">Versão final: status calculado no PHP</p>
+<nav><a href="index.html">Versão final</a> · <a href="index-v1.html">Versão inicial</a></nav>
+<table id="alunos">
+  <thead><tr><th>Aluno</th><th>Nota</th><th>Status</th></tr></thead>
+  <tbody></tbody>
+</table>
+<p id="aviso">Carregando…</p>
+<script src="js/tabela.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
