@@ -77,7 +77,7 @@ JSON, e a nota sai como `8.5`.
 A mensagem do PDO pode conter nome de banco, usuário e host, que não devem chegar ao
 navegador.
 
-**Nome exibido como texto.** A tabela é montada com `textContent`, e não concatenando
+**Nome exibido como texto.** A tabela é montada com `textContent`, sem concatenar
 HTML. Um nome cadastrado como `<img src=x onerror=alert(1)>` aparece escrito na tela
 em vez de ser executado. Foi testado.
 
@@ -111,7 +111,7 @@ final o `app.js` tem uma linha e não sabe o que é aprovação. A decisão de m
 
 A validação no frontend ainda tem lugar, para dar retorno rápido ao usuário, como
 avisar que uma nota digitada passa de 10 antes de enviar o formulário. Ela serve como
-conveniência e não substitui a regra do servidor, que é a que vale.
+conveniência; a regra que vale continua sendo a do servidor.
 
 Existe ainda uma terceira posição possível, no próprio banco, com uma coluna gerada ou
 uma view calculando o status. Ela tem a vantagem de valer até para quem consulta o

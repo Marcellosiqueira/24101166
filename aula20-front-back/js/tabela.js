@@ -3,7 +3,7 @@
 const formatarNota = nota =>
     nota.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 
-// Monta as linhas com textContent, e nao com innerHTML: o nome vem do banco,
+// Monta as linhas com textContent em vez de innerHTML: o nome vem do banco,
 // e um nome contendo HTML seria interpretado pela pagina se fosse concatenado.
 function preencherTabela(alunos, calcularStatus) {
     const corpo = document.querySelector('#alunos tbody');
