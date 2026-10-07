@@ -9,14 +9,14 @@ disco e continuam disponíveis entre uma execução e outra.
 
 O sistema usa dois arquivos, criados automaticamente na primeira gravação:
 
-**alunos.txt** — uma linha por aluno:
+**alunos.txt**, uma linha por aluno:
 
 ```
 ID;NOME;TELEFONE;EMAIL
 1;Ana Souza;61999990000;ana@email.com
 ```
 
-**notas.txt** — uma linha por nota:
+**notas.txt**, uma linha por nota:
 
 ```
 ID_ALUNO;DISCIPLINA;NOTA
@@ -60,22 +60,31 @@ identifica o aluno de forma única em `alunos.txt`. Para consultar uma nota, o
 programa primeiro localiza o aluno pelo nome, pega o `ID` dele e só então varre
 `notas.txt` procurando as linhas cujo primeiro campo seja igual a esse `ID`.
 
-**Por que usar um identificador único em vez do nome?**
-Porque nomes se repetem e mudam. Dois alunos podem se chamar "Ana Souza"
-(homônimos), e nesse caso não haveria como saber de quem é a nota. Além disso,
-um nome pode ser corrigido ou alterado, e todas as notas ligadas a ele ficariam
-órfãs. O ID é estável: nunca muda e nunca se repete, então a ligação entre os
-arquivos continua válida.
+**Por que é importante utilizar um identificador único?**
+Porque a ligação entre os dois arquivos precisa apontar para exatamente um
+aluno. O ID cumpre isso: o cadastro recusa ID repetido, e ele não muda ao longo
+do tempo, então cada linha de `notas.txt` continua apontando para o mesmo
+registro de `alunos.txt` enquanto ele existir.
+
+**O que aconteceria se fosse utilizado apenas o nome do aluno?**
+Nomes se repetem e mudam. Com dois alunos chamados "Ana Souza", uma linha
+`Ana Souza;Banco de Dados;9.5` não diria de qual das duas é a nota, e a média
+de uma misturaria as notas da outra. Se o nome fosse corrigido em
+`alunos.txt`, todas as notas gravadas com o nome antigo ficariam órfãs. O
+próprio programa mostra o limite: as opções de consulta localizam o aluno pelo
+nome e ficam com o primeiro que encontram, então a segunda "Ana Souza" não é
+alcançada por elas. As notas dela continuam certas no arquivo porque estão
+ligadas ao ID.
 
 **Como garantir que uma nota pertença a um aluno existente?**
 Validando antes de gravar. Na opção "Cadastrar nota", o programa procura o ID
 informado em `alunos.txt`; se não encontrar, a nota simplesmente não é escrita
 no arquivo. Isso evita notas apontando para alunos que não existem.
 
-**Quais dificuldades surgem quando os dados estão em arquivos separados?**
+**Quais dificuldades aparecem quando os dados ficam em arquivos diferentes?**
 Toda a integridade referencial fica por conta do programa: nada impede que
 alguém edite `alunos.txt` no bloco de notas e apague um aluno que ainda tem
-notas, deixando registros órfãos. Também não existe índice — para achar um
+notas, deixando registros órfãos. Também não existe índice; para achar um
 aluno é preciso ler o arquivo linha por linha, o que fica lento conforme os
 dados crescem. Não há tipos de dados (tudo é texto), nem controle de acesso
 simultâneo, e o caractere `;` usado como separador não pode aparecer dentro de

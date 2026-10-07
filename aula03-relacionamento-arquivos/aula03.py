@@ -1,4 +1,4 @@
-# Aula 02 - Sistema academico usando apenas arquivos de texto
+# Aula 03 - Sistema academico usando apenas arquivos de texto
 # alunos.txt -> ID;NOME;TELEFONE;EMAIL
 # notas.txt  -> ID_ALUNO;DISCIPLINA;NOTA  (ID_ALUNO referencia o ID em alunos.txt)
 
