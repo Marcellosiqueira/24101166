@@ -2,15 +2,19 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aeroporto - Voos</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<h1><a href="index.php">Voos</a></h1>
+<header class="topo">
+  <a href="index.php">Aeroporto</a>
+</header>
+<main class="conteudo">
 <?php if (!empty($_SESSION['aviso'])): ?>
-  <p class="<?= htmlspecialchars($_SESSION['aviso']['tipo']) ?>"><?= htmlspecialchars($_SESSION['aviso']['texto']) ?></p>
+  <p class="aviso <?= htmlspecialchars($_SESSION['aviso']['tipo']) ?>"><?= htmlspecialchars($_SESSION['aviso']['texto']) ?></p>
   <?php unset($_SESSION['aviso']); ?>
 <?php endif; ?>
 <?php if (!empty($erro)): ?>
-  <p class="erro"><?= htmlspecialchars($erro) ?></p>
+  <p class="aviso erro"><?= htmlspecialchars($erro) ?></p>
 <?php endif; ?>

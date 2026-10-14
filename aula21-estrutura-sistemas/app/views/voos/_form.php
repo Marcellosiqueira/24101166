@@ -1,5 +1,6 @@
 <?php $data = fn($v) => $v ? str_replace(' ', 'T', substr($v, 0, 16)) : ''; ?>
-<label>Rota
+<div class="campos">
+<label class="largo">Rota
   <select name="id_rota" required>
     <?php foreach ($rotas as $r): ?>
       <option value="<?= (int) $r['id_rota'] ?>" <?= ($dados['id_rota'] ?? '') == $r['id_rota'] ? 'selected' : '' ?>>
@@ -8,7 +9,7 @@
     <?php endforeach; ?>
   </select>
 </label>
-<label>Aeronave
+<label class="largo">Aeronave
   <select name="id_aeronave" required>
     <?php foreach ($aeronaves as $a): ?>
       <option value="<?= (int) $a['id_aeronave'] ?>" <?= ($dados['id_aeronave'] ?? '') == $a['id_aeronave'] ? 'selected' : '' ?>>
@@ -33,4 +34,8 @@
     <?php endforeach; ?>
   </select>
 </label>
-<p><button>Salvar</button> <a href="index.php">Cancelar</a></p>
+</div>
+<div class="botoes">
+  <button class="btn">Salvar</button>
+  <a href="index.php">Cancelar</a>
+</div>

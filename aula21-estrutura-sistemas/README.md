@@ -81,7 +81,8 @@ Cancelado.
   ver o detalhe em desenvolvimento, `APP_DEBUG=1` no `.env`.
 - Criar, editar e excluir só aceitam POST. A exclusão é um formulário com botão, e
   não um link: um link de exclusão pode ser disparado por um navegador que
-  pré-carrega páginas. Após gravar, a página redireciona, então recarregar não
+  pré-carrega páginas. O botão é estilizado como link, mas continua sendo um
+  formulário POST. Após gravar, a página redireciona, então recarregar não
   reenvia o formulário.
 
 ## Teste
