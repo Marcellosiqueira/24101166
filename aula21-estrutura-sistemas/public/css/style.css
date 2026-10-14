@@ -1,0 +1,6 @@
+body { font-family: sans-serif; margin: 20px; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid #ccc; padding: 4px 8px; }
+label { display: block; margin-top: 8px; }
+.ok { color: green; } .erro { color: red; }
+form.inline { display: inline; }

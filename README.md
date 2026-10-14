@@ -20,6 +20,7 @@ materiais do professor.
 | 15 | Triggers | [`aula15-triggers/`](aula15-triggers/) |
 | 16 | Locking, deadlocks e MVCC | [`aula16-concorrencia/`](aula16-concorrencia/) |
 | 20 | Front + Back: MySQL, PHP e JavaScript | [`aula20-front-back/`](aula20-front-back/) |
+| 21 | Estrutura de sistemas: CRUD de voos em camadas | [`aula21-estrutura-sistemas/`](aula21-estrutura-sistemas/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -291,6 +292,31 @@ mysql -u root < banco/alunos.sql
 
 Depois, copiar a pasta para `C:\laragon\www\` e abrir `http://localhost/aula20-front-back/`.
 
+## Aula 21: Estrutura de sistemas
+
+CRUD de voos do aeroporto em PHP e MySQL, organizado em camadas: `config/database.php`
+com a única conexão do sistema, o model `Voo` com todo o SQL, o `VooController` que
+coordena e views só com HTML. O servidor expõe apenas `public/`, e as demais pastas têm
+`.htaccess` com `Require all denied`.
+
+O sistema roda sobre o esquema normalizado da Aula 10, então a listagem faz `JOIN` com
+`rota` e `aeronave`, e o formulário escolhe rota e aeronave por listas de seleção. As
+regras do voo não são repetidas em PHP: o model executa o comando e traduz o erro do banco
+(1062, 3819, 1451 e o 1644 da trigger da Aula 15) numa mensagem para a tela.
+
+Todo SQL usa prepared statements, toda saída passa por `htmlspecialchars()`, as
+credenciais ficam no `.env`, fora do Git, e a aplicação conecta com o usuário
+`aeroporto_app`, que só tem `SELECT`, `INSERT`, `UPDATE` e `DELETE`. Criar, editar e excluir
+só aceitam POST.
+
+```bash
+mysql -u root -p < aula10-integridade/sql_integridade.sql
+mysql -u root -p < aula21-estrutura-sistemas/banco/usuario_app.sql
+```
+
+Depois, copiar `.env.example` para `.env`, copiar a pasta para `C:\laragon\www\` e abrir
+`http://localhost/aula21-estrutura-sistemas/public/`.
+
 ## Ambiente
 
 Python 3.12, sem dependências externas.
@@ -298,4 +324,5 @@ MySQL 8.x para as Aulas 08, 09, 10, 14, 15 e 16, com o script da Aula 08 testado
 em MariaDB 10.11. A Aula 14 foi medida em MySQL 8.0.46 e depende de
 performance_schema ligado. As Aulas 15 e 16 foram executadas em MySQL 8.0.46 em contêiner
 Docker (`mysql:8.0`); a Aula 16 exige InnoDB, e nada nela funciona sob MyISAM.
-A Aula 20 roda no Laragon, com PHP e a extensão `pdo_mysql`.
+As Aulas 20 e 21 rodam no Laragon, com PHP e a extensão `pdo_mysql`; a Aula 21 foi
+testada com PHP 8.3.
