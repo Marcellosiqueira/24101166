@@ -21,6 +21,7 @@ materiais do professor.
 | 16 | Locking, deadlocks e MVCC | [`aula16-concorrencia/`](aula16-concorrencia/) |
 | 20 | Front + Back: MySQL, PHP e JavaScript | [`aula20-front-back/`](aula20-front-back/) |
 | 21 | Estrutura de sistemas: CRUD de voos em camadas | [`aula21-estrutura-sistemas/`](aula21-estrutura-sistemas/) |
+| 22 | Exclusão de voos com soft delete | [`aula22-soft-delete/`](aula22-soft-delete/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -326,3 +327,24 @@ performance_schema ligado. As Aulas 15 e 16 foram executadas em MySQL 8.0.46 em 
 Docker (`mysql:8.0`); a Aula 16 exige InnoDB, e nada nela funciona sob MyISAM.
 As Aulas 20 e 21 rodam no Laragon, com PHP e a extensão `pdo_mysql`; a Aula 21 foi
 testada com PHP 8.3.
+
+## Aula 22: Exclusão de voos com soft delete
+
+Continuação do CRUD da Aula 21. Excluir um voo preenche `deleted_at` em vez de apagar a
+linha; o filtro `deleted_at IS NULL` fica numa constante do model `Voo`, usada por todas
+as consultas de voo. A exclusão passa por uma tela de confirmação e, dentro de uma
+transação, trava o voo, recusa se houver passagens vendidas, faz o `UPDATE` e grava a
+tabela `auditoria` com o operador da sessão; se a auditoria falhar, o `rollback` desfaz o
+`UPDATE`. A tela "Voos excluídos" lista os excluídos e restaura cada um.
+
+O índice único de rota e partida passou a incluir uma coluna gerada que vale NULL nos
+excluídos, e o usuário `aeroporto_app` perdeu o `DELETE`. Os três desafios extras estão
+feitos: bloqueio por passagens, teste de rollback e backup com `mysqldump`. O relatório
+está em `aula22-soft-delete/RELATORIO.md`.
+
+```bash
+mysql -u root -p < aula10-integridade/sql_integridade.sql
+mysql -u root -p < aula22-soft-delete/banco/migration_soft_delete.sql
+mysql -u root -p < aula22-soft-delete/banco/usuario_app.sql
+```
+
