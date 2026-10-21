@@ -39,22 +39,9 @@ class Voo
         return $this->db->query($sql)->fetchAll();
     }
 
-    // Aula 23: busca por destino em duas versoes, com as 5 colunas do
-    // enunciado (id, numero_voo, origem, destino, status).
-
-    // Versao A, vulneravel de proposito: o texto digitado entra no SQL por
-    // concatenacao e o banco o le como parte do comando.
-    public function buscarVulneravel(string $destino): array
-    {
-        $sql = "SELECT v.id_voo AS id, r.numero_voo, r.origem, r.destino, v.status
-                  FROM voo v
-                  JOIN rota r ON r.id_rota = v.id_rota
-                 WHERE " . self::ATIVO . " AND r.destino = '$destino'";
-        return $this->db->query($sql)->fetchAll();
-    }
-
-    // Versao B: o comando vai para o banco sem o texto, e o texto vai depois
-    // como valor do parametro :destino.
+    // Aula 23: busca por destino com as 5 colunas do enunciado. O comando vai
+    // para o banco sem o texto, e o texto vai depois como valor de :destino.
+    // A versao vulneravel (buscarVulneravel) foi removida depois dos testes.
     public function buscarSeguro(string $destino): array
     {
         $stmt = $this->db->prepare(

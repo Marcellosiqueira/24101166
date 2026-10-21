@@ -18,16 +18,11 @@ class VooController
         $this->tela('listar', ['voos' => $voos]);
     }
 
-    // Busca por destino. versao=a usa a consulta vulneravel; qualquer outro
-    // valor, ou nenhum, usa a segura.
     public function buscar(): void
     {
         $destino = $_GET['destino'] ?? '';
-        $versao  = ($_GET['versao'] ?? 'b') === 'a' ? 'a' : 'b';
-        $voos = $versao === 'a'
-            ? $this->voo->buscarVulneravel($destino)
-            : $this->voo->buscarSeguro($destino);
-        $this->tela('buscar', ['voos' => $voos, 'destino' => $destino, 'versao' => $versao]);
+        $voos = $this->voo->buscarSeguro($destino);
+        $this->tela('buscar', ['voos' => $voos, 'destino' => $destino]);
     }
 
     public function excluidos(): void

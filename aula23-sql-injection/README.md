@@ -5,7 +5,9 @@ Marcello Azevedo Pinheiro Siqueira, matrícula 24101166.
 
 Continuação do sistema de voos da Aula 22. A busca de voos por destino foi feita em
 duas versões, uma sem e outra com prepared statement, e os quatro payloads do
-enunciado foram aplicados nas duas.
+enunciado foram aplicados nas duas. Depois dos testes a versão vulnerável foi removida,
+como pede o enunciado; o código testado está no commit `7ce614a`
+(`git show 7ce614a -- aula23-sql-injection/app`).
 
 A tabela de comparação e as respostas das três perguntas, que são a entrega do
 Moodle, estão em [`RELATORIO.md`](RELATORIO.md).
@@ -15,9 +17,9 @@ Moodle, estão em [`RELATORIO.md`](RELATORIO.md).
 | Arquivo | Mudança |
 | --- | --- |
 | `banco/migration_sql_injection.sql` | novo: `email` e `senha_hash` em `usuario`, com dados de teste |
-| `app/models/Voo.php` | `buscarVulneravel()` e `buscarSeguro()` |
-| `app/controllers/VooController.php` | ação `buscar`, que escolhe a versão por `versao` |
-| `app/views/voos/buscar.php` | novo: formulário de destino e versão, tabela com as 5 colunas |
+| `app/models/Voo.php` | `buscarSeguro()`; `buscarVulneravel()` existiu no commit `7ce614a` e foi removido |
+| `app/controllers/VooController.php` | ação `buscar`; no commit `7ce614a` ela escolhia a versão por `versao` |
+| `app/views/voos/buscar.php` | novo: formulário de destino e tabela com as 5 colunas |
 | `app/views/includes/header.php` | link "Buscar" no menu |
 | `public/index.php` | rota GET `buscar` |
 | `config/database.php` | `PDO::ATTR_EMULATE_PREPARES => false` |
@@ -27,8 +29,8 @@ O relatório e os scripts dos desafios da Aula 22 ficaram só na pasta dela.
 ## Como executar no Laragon
 
 1. Se o banco ainda não tem a Aula 22: rodar `aula10-integridade/sql_integridade.sql`,
-   opcionalmente `aula15-triggers/triggers.sql`, e
-   `aula22-soft-delete/banco/migration_soft_delete.sql`.
+   opcionalmente `aula15-triggers/triggers.sql`, e `banco/migration_soft_delete.sql`
+   (cópia do da Aula 22).
 2. Rodar `banco/migration_sql_injection.sql` e depois `banco/usuario_app.sql`, como
    root.
 3. Copiar `.env.example` para `.env` e conferir a senha.
@@ -38,10 +40,17 @@ O relatório e os scripts dos desafios da Aula 22 ficaram só na pasta dela.
 
 Sem o Laragon, de dentro da pasta: `php -S localhost:8000 -t public`.
 
-A URL do enunciado funciona direto, depois de entrar:
+A URL do enunciado funciona depois de entrar. O parâmetro `versao` não tem mais efeito:
+toda busca usa o prepared statement.
 
 ```text
 index.php?acao=buscar&versao=a&destino=BSB
+```
+
+Para refazer os ataques na versão A, voltar a pasta para o commit do laboratório:
+
+```bash
+git checkout 7ce614a -- aula23-sql-injection/app
 ```
 
 ## Adaptações ao projeto
@@ -54,7 +63,6 @@ index.php?acao=buscar&versao=a&destino=BSB
   Aula 22.
 - O `listar.php` usa colunas que a busca não devolve (prefixo, partida, portão), por
   isso a busca tem view própria.
-- Sem `versao`, ou com valor diferente de `a`, a busca usa a versão segura.
 
 ## Decisões fora do enunciado
 
@@ -90,7 +98,8 @@ Regressão do CRUD com `ATTR_EMULATE_PREPARES => false`:
 | Editar o voo 8 | rota e status gravados no banco |
 | Excluir por GET | 404 |
 | Buscar sem operador na sessão | tela de entrada |
-| `versao=zzz` com o payload 3 | versão B, 0 resultados |
+| `versao=zzz` com o payload 3, no commit `7ce614a` | versão B, 0 resultados |
+| Os quatro payloads com `versao=a`, depois da remoção | 0 resultados nos payloads 2, 3 e 4; o `BSB` devolve os voos de BSB |
 
 ## Checklist do enunciado
 
@@ -101,4 +110,4 @@ Regressão do CRUD com `ATTR_EMULATE_PREPARES => false`:
 - [x] Quatro payloads nas duas versões
 - [x] Tabela de comparação preenchida
 - [x] Respostas das três perguntas
-- [ ] Remover `buscarVulneravel()` depois da entrega
+- [x] Remover `buscarVulneravel()` depois dos testes

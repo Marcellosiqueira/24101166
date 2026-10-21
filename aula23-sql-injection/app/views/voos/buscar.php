@@ -8,18 +8,12 @@
     <label>Destino (código IATA)
       <input name="destino" value="<?= htmlspecialchars($destino) ?>">
     </label>
-    <label>Versão
-      <select name="versao">
-        <option value="a" <?= $versao === 'a' ? 'selected' : '' ?>>A - sem prepared statement</option>
-        <option value="b" <?= $versao === 'b' ? 'selected' : '' ?>>B - com prepared statement</option>
-      </select>
-    </label>
   </div>
   <div class="botoes"><button class="btn">Buscar</button></div>
 </form>
 
 <?php if ($destino !== ''): ?>
-  <p class="nota"><?= count($voos) ?> resultado(s) na versão <?= strtoupper($versao) ?>.</p>
+  <p class="nota"><?= count($voos) ?> resultado(s).</p>
   <?php if ($voos): ?>
   <div class="tabela-rolagem">
   <table>

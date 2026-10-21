@@ -358,7 +358,8 @@ derrubou a consulta (1064), o `' OR '1'='1` listou todos os voos, inclusive um e
 por soft delete, e o `UNION` vazou email e hash de senha dos usuários; na versão B todos
 devolveram zero linhas. A conexão passou a usar `PDO::ATTR_EMULATE_PREPARES => false`,
 para o banco receber comando e valor separados. A tabela e as respostas estão em
-`aula23-sql-injection/RELATORIO.md`.
+`aula23-sql-injection/RELATORIO.md`. Depois dos testes a versão vulnerável foi removida;
+ela está no commit `7ce614a`.
 
 ```bash
 mysql -u root -p < aula23-sql-injection/banco/migration_sql_injection.sql
