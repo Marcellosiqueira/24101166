@@ -22,6 +22,7 @@ materiais do professor.
 | 20 | Front + Back: MySQL, PHP e JavaScript | [`aula20-front-back/`](aula20-front-back/) |
 | 21 | Estrutura de sistemas: CRUD de voos em camadas | [`aula21-estrutura-sistemas/`](aula21-estrutura-sistemas/) |
 | 22 | Exclusão de voos com soft delete | [`aula22-soft-delete/`](aula22-soft-delete/) |
+| 23 | SQL Injection na busca de voos | [`aula23-sql-injection/`](aula23-sql-injection/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -348,3 +349,20 @@ mysql -u root -p < aula22-soft-delete/banco/migration_soft_delete.sql
 mysql -u root -p < aula22-soft-delete/banco/usuario_app.sql
 ```
 
+## Aula 23: SQL Injection
+
+A busca de voos por destino foi feita em duas versões no model `Voo`:
+`buscarVulneravel()`, que concatena o texto no SQL, e `buscarSeguro()`, com prepared
+statement. Os quatro payloads do enunciado foram aplicados nas duas: na versão A o `'`
+derrubou a consulta (1064), o `' OR '1'='1` listou todos os voos, inclusive um excluído
+por soft delete, e o `UNION` vazou email e hash de senha dos usuários; na versão B todos
+devolveram zero linhas. A conexão passou a usar `PDO::ATTR_EMULATE_PREPARES => false`,
+para o banco receber comando e valor separados. A tabela e as respostas estão em
+`aula23-sql-injection/RELATORIO.md`.
+
+```bash
+mysql -u root -p < aula23-sql-injection/banco/migration_sql_injection.sql
+mysql -u root -p < aula23-sql-injection/banco/usuario_app.sql
+```
+
+Os dois scripts rodam sobre um banco que já tem a migração da Aula 22.
