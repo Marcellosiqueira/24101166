@@ -23,6 +23,8 @@ materiais do professor.
 | 21 | Estrutura de sistemas: CRUD de voos em camadas | [`aula21-estrutura-sistemas/`](aula21-estrutura-sistemas/) |
 | 22 | Exclusão de voos com soft delete | [`aula22-soft-delete/`](aula22-soft-delete/) |
 | 23 | SQL Injection na busca de voos | [`aula23-sql-injection/`](aula23-sql-injection/) |
+| 24 | Privilégios em banco de dados | [`aula24-privilegios/`](aula24-privilegios/) |
+| 25 | Autenticação e validação | [`aula25-autenticacao/`](aula25-autenticacao/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -367,3 +369,35 @@ mysql -u root -p < aula23-sql-injection/banco/usuario_app.sql
 ```
 
 Os dois scripts rodam sobre um banco que já tem a migração da Aula 22.
+
+## Aula 24: Privilégios em banco de dados
+
+A aplicação passou a conectar com a conta `app_aeroporto`, com `GRANT` tabela por tabela
+e sem `DELETE`. Com ela, listar, criar, editar e excluir pela aplicação funcionam, porque
+a exclusão é soft delete; `DELETE` e `DROP` direto no banco dão erro 1142. O teste
+mostrou que as triggers da Aula 15 continuam gravando no log sem privilégio na tabela,
+e que o `CURRENT_USER()` delas registra o dono da trigger, não a conta da aplicação. O
+desafio cria a conta `relatorios` com privilégio só nas colunas `id_passageiro` e `nome`
+(erro 1143 ao ler `cpf`) e a alternativa com view. `SHOW GRANTS`, tabela e respostas em
+`aula24-privilegios/RELATORIO.md`.
+
+```bash
+mysql -u root -p < aula24-privilegios/banco/usuario_app.sql
+mysql -u root -p < aula24-privilegios/banco/desafio_relatorios.sql
+```
+
+## Aula 25: Autenticação e validação
+
+Login com e-mail e senha (`password_verify`, mesma mensagem para e-mail ou senha
+errados, `session_regenerate_id` no login e `session_destroy` no logout), todas as telas
+protegidas por `exigirLogin()` no `public/index.php`, validação do cadastro de voo no
+servidor com lista de erros e mensagem genérica para erro de banco, com o detalhe no log.
+O código do voo agora é digitado no formato `LA1234`, e a rota é criada se o código for
+novo. No desafio, só o perfil `admin` exclui e restaura voos; os demais recebem 403.
+
+```bash
+mysql -u root -p < aula25-autenticacao/banco/migration_autenticacao.sql
+mysql -u root -p < aula25-autenticacao/banco/usuario_app.sql
+```
+
+Os dois scripts rodam sobre um banco que já tem a Aula 23.
