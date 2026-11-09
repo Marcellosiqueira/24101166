@@ -157,12 +157,22 @@ SELECT
 EXPLAIN SELECT * FROM cliente WHERE nome LIKE '%123';
 -- 3B depois: prefixo fixo
 EXPLAIN SELECT * FROM cliente WHERE nome LIKE 'Cliente 123%';
+-- Extra: quantas linhas cada versao devolve (as duas buscas sao diferentes)
+SELECT
+  (SELECT COUNT(*) FROM cliente WHERE nome LIKE '%123') AS termina_em_123,
+  (SELECT COUNT(*) FROM cliente WHERE nome LIKE 'Cliente 123%') AS comeca_com_cliente_123;
 
 -- 3C antes: VARCHAR comparado com numero
 EXPLAIN SELECT * FROM cliente WHERE cpf = 4242;
 SHOW WARNINGS;   -- mostra a consulta como o otimizador reescreveu
 -- 3C depois: comparado com texto (o cpf e gravado com LPAD de 11 posicoes)
 EXPLAIN SELECT * FROM cliente WHERE cpf = '00000004242';
+-- Extra: as duas versoes devolvem o mesmo numero de linhas
+SELECT
+  (SELECT COUNT(*) FROM cliente WHERE cpf = 4242) AS com_numero,
+  (SELECT COUNT(*) FROM cliente WHERE cpf = '00000004242') AS com_texto;
+-- Extra: tempo real da versao numerica
+EXPLAIN ANALYZE SELECT * FROM cliente WHERE cpf = 4242;
 
 -- -----------------------------------------------------------------------------
 -- Parte 4 - Indice composto

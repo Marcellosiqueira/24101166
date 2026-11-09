@@ -407,7 +407,7 @@ Os dois scripts rodam sobre um banco que já tem a Aula 23.
 
 Leitura do plano de execução com `EXPLAIN` e `EXPLAIN ANALYZE` no banco separado
 `lab_otimizacao` (50 mil clientes, 500 mil locações). Diagnóstico sem índices, ganho com
-`idx_loc_cliente` e `idx_cli_cpf` (Q1 de 148 ms para 0,072 ms), seletividade com
+`idx_loc_cliente` e `idx_cli_cpf` (Q1 de 146 ms para 0,0366 ms), seletividade com
 `idx_loc_status`, os três casos em que o índice é ignorado (função na coluna, `LIKE` com
 `%` no início, conversão implícita de tipo) com a reescrita de cada um, índice composto e
 o desafio com índice invisível. Extras: tempo real com e sem índice na seletividade e

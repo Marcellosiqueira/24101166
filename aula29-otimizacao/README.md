@@ -23,14 +23,15 @@ mysql -u root -p -t < otimizacao.sql
 ```
 
 O script apaga e recria o `lab_otimizacao`, então pode ser rodado quantas vezes for
-preciso. A carga leva poucos segundos; o teste de escrita do final leva uns 20 segundos.
-Não mexe no banco `aeroporto` das outras aulas.
+preciso. A carga leva poucos segundos; o teste de escrita do final leva cerca de 33
+segundos. Não mexe no banco `aeroporto` das outras aulas.
 
-**Ambiente de medição.** MySQL 8.0.46 (Ubuntu), `EXPLAIN` no formato tradicional e
-`EXPLAIN ANALYZE` no formato árvore. Os tempos são da segunda execução do script, com o
-buffer pool já aquecido; a primeira deu valores na mesma faixa. O Laragon usa MySQL
-8.4.3, então tempos e estimativas de `rows` podem variar um pouco. O `type` e o `key`
-devem se repetir, com uma ressalva na seletividade, explicada na Parte 2.
+**Ambiente de medição.** MySQL 8.4.3 no Laragon (Windows), `EXPLAIN` no formato
+tradicional e `EXPLAIN ANALYZE` no formato árvore. Os números são da segunda de duas
+execuções completas e seguidas do script, com o buffer pool já aquecido. O `rows`
+estimado muda um pouco a cada execução porque o `ANALYZE TABLE` trabalha por amostragem.
+Os tempos de escrita da Parte 5 oscilaram bastante entre as execuções; a variação está
+registrada lá.
 
 ## Parte 0: preparação
 
@@ -48,7 +49,7 @@ devem se repetir, com uma ressalva na seletividade, explicada na Parte 2.
 | Q2 | locacao | ALL | NULL | 498636 | NULL |
 | Q2 | cliente | eq_ref | PRIMARY | 1 | Using where |
 
-Tempo real da Q1 (`actual time` do `EXPLAIN ANALYZE`): **148 ms**, lendo 500000 linhas
+Tempo real da Q1 (`actual time` do `EXPLAIN ANALYZE`): **146 ms**, lendo 500000 linhas
 para devolver 10.
 
 Na Q2 o MySQL não começou por `cliente`, como a ordem da tabela do enunciado sugere.
@@ -56,7 +57,7 @@ Sem índice em `cpf`, achar o cliente exigiria um full scan de `cliente`, e mesm
 não haveria como chegar às locações dele sem varrer `locacao`. O otimizador preferiu
 varrer `locacao` uma vez e, para cada linha, buscar o cliente pela chave primária
 (`eq_ref`), testando o `cpf` depois. O `EXPLAIN ANALYZE` (extra) mostra o custo disso:
-**667 ms**, com 500000 buscas pela `PRIMARY` de `cliente` (`loops=500000`).
+**1865 ms**, com 500000 buscas pela `PRIMARY` de `cliente` (`loops=500000`).
 
 **Por que o MySQL não teve alternativa a ler a tabela inteira?** Porque não existia
 índice em `locacao.id_cliente` nem em `cliente.cpf`. A única estrutura ordenada era a
@@ -72,8 +73,8 @@ condição linha a linha (`type = ALL`).
 | Q2 | cliente | ref | idx_cli_cpf | 1 |
 | Q2 | locacao | ref | idx_loc_cliente | 9 |
 
-Tempo real da Q1 agora: **0,072 ms** (antes 148 ms). A Q2 caiu de 667 ms para
-**0,071 ms**. Com os dois índices, a ordem do join inverteu: o MySQL acha o cliente pelo
+Tempo real da Q1 agora: **0,0366 ms** (antes 146 ms). A Q2 caiu de 1865 ms para
+**0,0388 ms**. Com os dois índices, a ordem do join inverteu: o MySQL acha o cliente pelo
 `cpf` (1 linha) e só então busca as 10 locações dele.
 
 ### Seletividade na prática
@@ -81,18 +82,20 @@ Tempo real da Q1 agora: **0,072 ms** (antes 148 ms). A Q2 caiu de 667 ms para
 | Filtro | Parcela real da tabela | `type` | `key` | `rows` estimado |
 |---|---|---|---|---|
 | `status = 'cancelada'` | 2% (10000 linhas) | ref | idx_loc_status | 18332 |
-| `status = 'concluida'` | 74% (370000 linhas) | ref | idx_loc_status | 249318 |
+| `status = 'concluida'` | 74% (370000 linhas) | ref | idx_loc_status | 248856 |
 
-Neste ambiente o MySQL usou o índice nos dois casos, ao contrário do esperado. O
-resultado foi conferido com `EXPLAIN ANALYZE`, com o índice e com `IGNORE INDEX`:
+No MySQL 8.4.3 o otimizador usou o índice nos dois casos, ao contrário do esperado pelo
+enunciado para `concluida`. O resultado foi conferido com `EXPLAIN ANALYZE`, com o índice
+e com `IGNORE INDEX`:
 
 | Filtro | Com `idx_loc_status` | Com full scan (`IGNORE INDEX`) |
 |---|---|---|
-| `cancelada` | 20,7 ms | 166 ms |
-| `concluida` | 802 ms | 171 ms |
+| `cancelada` | 15,1 ms | 190 ms |
+| `concluida` | 771 ms | 225 ms |
 
-Para `cancelada` o índice é 8 vezes mais rápido. Para `concluida` ele é 4,7 vezes **mais
-lento** que ler a tabela inteira, e mesmo assim o otimizador escolheu o índice.
+Para `cancelada` o índice é cerca de 12,6 vezes mais rápido. Para `concluida` ele é cerca
+de 3,4 vezes **mais lento** que ler a tabela inteira, e mesmo assim o otimizador escolheu
+o índice.
 
 **O índice existe nos dois casos. Por que o resultado do plano é diferente?** Por causa
 da seletividade. Um índice secundário guarda só o valor da coluna e a chave primária;
@@ -101,19 +104,17 @@ para cada entrada encontrada, o InnoDB precisa ir à tabela buscar a linha compl
 74% são 370 mil idas à tabela, mais caras que ler as 500 mil linhas em sequência, e o
 correto seria o full scan (`type = ALL`, `key = NULL`).
 
-O que aconteceu aqui foi um erro de estimativa: o otimizador calculou 249318 linhas
-(50%) em vez de 370000 (74%), e com essa conta o índice saiu mais barato (custo 26110
-contra 50256 do full scan). O plano é escolhido pela estimativa, não pelo tempo real.
-Se no Laragon o `concluida` aparecer como `ALL`, é o comportamento previsto pelo
-enunciado; se aparecer como `ref`, é o mesmo erro de estimativa registrado acima.
+O que aconteceu aqui foi um erro de estimativa: o otimizador calculou 248856 linhas
+(50%) em vez de 370000 (74%), e com essa conta o índice saiu mais barato (custo 26064
+contra 50164 do full scan). O plano é escolhido pela estimativa, não pelo tempo real.
 
 ## Parte 3: índices que o MySQL ignora
 
 | Caso | `type` antes | `type` depois | Por que o índice não era usado? |
 |---|---|---|---|
-| 3A | ALL (498636 linhas) | range em idx_loc_data (24756 linhas estimadas) | `DATE_FORMAT` transforma a coluna antes da comparação. O índice está ordenado por `data_retirada`, não pelo resultado da função, então o banco precisa calcular a função em todas as linhas. |
-| 3B | ALL (50196 linhas) | range em idx_cli_nome (111 linhas) | O índice B-tree é ordenado da esquerda para a direita. Com `%` no início não há prefixo fixo para posicionar a busca na árvore. |
-| 3C | ALL (50196 linhas), com `idx_cli_cpf` em `possible_keys` | ref em idx_cli_cpf (1 linha) | Comparando `VARCHAR` com número, o MySQL converte o `cpf` de cada linha para número. Vários textos viram o mesmo número (`'4242'`, `'04242'`, `'00000004242'`), então a ordem do índice não serve. |
+| 3A | ALL (497712 linhas) | range em idx_loc_data (24756 linhas estimadas) | `DATE_FORMAT` transforma a coluna antes da comparação. O índice está ordenado por `data_retirada`, não pelo resultado da função, então o banco precisa calcular a função em todas as linhas. |
+| 3B | ALL (50243 linhas) | range em idx_cli_nome (111 linhas) | O índice B-tree é ordenado da esquerda para a direita. Com `%` no início não há prefixo fixo para posicionar a busca na árvore. |
+| 3C | ALL (50243 linhas), com `idx_cli_cpf` em `possible_keys` | ref em idx_cli_cpf (1 linha) | Comparando `VARCHAR` com número, o MySQL converte o `cpf` de cada linha para número. Vários textos viram o mesmo número (`'4242'`, `'04242'`, `'00000004242'`), então a ordem do índice não serve. |
 
 Consultas reescritas:
 
@@ -138,7 +139,9 @@ Conferências feitas para garantir que a reescrita não mudou o resultado:
   12399). Busca por final de texto não tem como usar esse índice.
 - 3C: as duas versões devolvem 1 linha. No texto, o `cpf` precisa vir com os zeros à
   esquerda, como o `LPAD` gravou; `cpf = '4242'` não acharia nada. O `EXPLAIN ANALYZE`
-  da versão numérica leu as 50000 linhas em 22,7 ms.
+  da versão numérica leu as 50000 linhas em 11,6 ms. O `SHOW WARNINGS` registra o motivo
+  no aviso 1739: `Cannot use ref access on index 'idx_cli_cpf' due to type or collation
+  conversion on field 'cpf'`.
 
 Em 3A o `rows` estimado (24756) é maior que o real (13680), mas o plano já mostra o que
 importa: `range` com `Using index condition` em vez de `ALL`.
@@ -169,18 +172,19 @@ Dois testes extras confirmam:
 - Com `FORCE INDEX (idx_loc_cli_data)` o plano continua `ALL`: o MySQL não tem como
   montar um `range` com esse índice para essa condição.
 - Pedindo só as colunas do índice (`SELECT id_cliente, data_retirada`), o plano muda
-  para `type = index` com `Using index`. Ainda percorre as 498636 entradas, mas lê o
-  índice inteiro em vez da tabela, que é menor. É uma varredura completa, não uma busca.
+  para `type = index` com `Using index`. Ainda percorre o índice inteiro (498636 entradas
+  estimadas), mas lê o índice em vez da tabela, que é menor. É uma varredura completa,
+  não uma busca.
 
 Depois do teste o índice voltou a `VISIBLE`.
 
 ## Parte 5: fechamento
 
 **1. Qual consulta teve o maior ganho com o índice e como você percebeu no plano?**
-A Q2. Sem índice era `ALL` em `locacao` com 500 mil buscas em `cliente` (667 ms); com
-`idx_cli_cpf` e `idx_loc_cliente` virou dois `ref` com 1 e 9 linhas estimadas (0,071 ms),
-cerca de 9 mil vezes mais rápido. A Q1 ganhou cerca de 2 mil vezes (148 ms para
-0,072 ms). No plano, o sinal foi `type` passando de `ALL` para `ref`, `key` deixando de
+A Q2. Sem índice era `ALL` em `locacao` com 500 mil buscas em `cliente` (1865 ms); com
+`idx_cli_cpf` e `idx_loc_cliente` virou dois `ref` com 1 e 9 linhas estimadas
+(0,0388 ms), cerca de 48 mil vezes mais rápido. A Q1 ganhou cerca de 4 mil vezes (146 ms
+para 0,0366 ms). No plano, o sinal foi `type` passando de `ALL` para `ref`, `key` deixando de
 ser `NULL` e `rows` caindo de 498636 para 10.
 
 **2. Caso em que existia índice e ele não foi usado, e a razão.**
@@ -197,11 +201,13 @@ ambiente com 500 mil linhas (extra):
 
 | Operação | Só `PRIMARY` | Com os 4 índices secundários |
 |---|---|---|
-| `INSERT ... SELECT` de 500 mil linhas | 2,5 s | 8,5 s |
-| `UPDATE` de `data_retirada` em todas as linhas | 2,5 s | 9,3 s |
+| `INSERT ... SELECT` de 500 mil linhas | 2,3 s | 15,7 s |
+| `UPDATE` de `data_retirada` em todas as linhas | 6,9 s | 8,2 s |
 
 O `UPDATE` mexe em uma coluna que está em dois índices (`idx_loc_data` e
-`idx_loc_cli_data`), por isso também ficou mais caro. Índice vale para coluna que aparece
+`idx_loc_cli_data`), por isso também ficou mais caro. Esses tempos oscilam entre
+execuções: na primeira execução completa o `INSERT` foi de 3,8 s para 15,5 s e o
+`UPDATE` de 6,5 s para 14,9 s. A tabela com índices foi a mais lenta nas duas. Índice vale para coluna que aparece
 em filtro ou join e tem boa seletividade; índice que ninguém usa só encarece a escrita.
 
 ## Fora do enunciado
