@@ -25,6 +25,7 @@ materiais do professor.
 | 23 | SQL Injection na busca de voos | [`aula23-sql-injection/`](aula23-sql-injection/) |
 | 24 | Privilégios em banco de dados | [`aula24-privilegios/`](aula24-privilegios/) |
 | 25 | Autenticação e validação | [`aula25-autenticacao/`](aula25-autenticacao/) |
+| 29 | Otimização de consultas com EXPLAIN | [`aula29-otimizacao/`](aula29-otimizacao/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -401,3 +402,18 @@ mysql -u root -p < aula25-autenticacao/banco/usuario_app.sql
 ```
 
 Os dois scripts rodam sobre um banco que já tem a Aula 23.
+
+## Aula 29: Otimização de consultas
+
+Leitura do plano de execução com `EXPLAIN` e `EXPLAIN ANALYZE` no banco separado
+`lab_otimizacao` (50 mil clientes, 500 mil locações). Diagnóstico sem índices, ganho com
+`idx_loc_cliente` e `idx_cli_cpf` (Q1 de 148 ms para 0,072 ms), seletividade com
+`idx_loc_status`, os três casos em que o índice é ignorado (função na coluna, `LIKE` com
+`%` no início, conversão implícita de tipo) com a reescrita de cada um, índice composto e
+o desafio com índice invisível. Extras: tempo real com e sem índice na seletividade e
+custo medido dos índices em `INSERT` e `UPDATE`. Tabelas e respostas em
+`aula29-otimizacao/README.md`.
+
+```bash
+mysql -u root -p -t < aula29-otimizacao/otimizacao.sql
+```
