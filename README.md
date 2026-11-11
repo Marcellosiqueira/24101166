@@ -26,6 +26,7 @@ materiais do professor.
 | 24 | Privilégios em banco de dados | [`aula24-privilegios/`](aula24-privilegios/) |
 | 25 | Autenticação e validação | [`aula25-autenticacao/`](aula25-autenticacao/) |
 | 29 | Otimização de consultas com EXPLAIN | [`aula29-otimizacao/`](aula29-otimizacao/) |
+| 30 | Migrations com expandir e contrair | [`aula30-migrations/`](aula30-migrations/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -416,4 +417,24 @@ custo medido dos índices em `INSERT` e `UPDATE`. Tabelas e respostas em
 
 ```bash
 mysql -u root -p -t < aula29-otimizacao/otimizacao.sql
+```
+
+## Aula 30: Migrations
+
+Runner `migrate.php` com a tabela `schema_migrations`, `up` e `down` por arquivo, e a
+troca de `rota.origem` por `aeroporto_origem` em expandir e contrair, no banco de teste
+`aeroporto_lab`. A `003` cria a coluna nova com as `CHECK` de origem, o
+`backfill_origem.php` copia os dados em lotes, o código passa a gravar nos dois campos e
+depois a ler só o novo, a `003a` recria a `vw_painel_voos` com a coluna nova e a `004`
+remove as `CHECK` antigas e `origem`. O `reset_lab.sql` recria o banco de teste do dump.
+Testes, adaptações e respostas em `aula30-migrations/README.md` e
+`aula30-migrations/respostas.md`.
+
+```bash
+cd aula30-migrations
+mysqldump -u root aeroporto > aeroporto_backup.sql
+mysql -u root < reset_lab.sql
+php migrate.php up 003_add_aeroporto_origem
+php backfill_origem.php
+php migrate.php up
 ```

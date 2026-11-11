@@ -1,0 +1,13 @@
+mysql> SELECT * FROM schema_migrations;
+-- banco aeroporto_lab, MySQL 8.4.3 do Laragon, execucao completa a partir do reset_lab.sql.
+-- A 004 foi aplicada, desfeita (Pergunta 2) e aplicada de novo; por isso a hora dela e a ultima.
++--------------------------------------+---------------------+
+| version                              | aplicada_em         |
++--------------------------------------+---------------------+
+| 001_baseline                         | 2026-11-11 11:27:30 |
+| 002_add_portao_embarque              | 2026-11-11 11:27:31 |
+| 003_add_aeroporto_origem             | 2026-11-11 11:27:31 |
+| 003a_vw_painel_voos_aeroporto_origem | 2026-11-11 11:27:50 |
+| 004_drop_origem                      | 2026-11-11 11:27:55 |
++--------------------------------------+---------------------+
+
