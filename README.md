@@ -27,6 +27,7 @@ materiais do professor.
 | 25 | Autenticação e validação | [`aula25-autenticacao/`](aula25-autenticacao/) |
 | 29 | Otimização de consultas com EXPLAIN | [`aula29-otimizacao/`](aula29-otimizacao/) |
 | 30 | Migrations com expandir e contrair | [`aula30-migrations/`](aula30-migrations/) |
+| 33 | BI do aeroporto: modelo estrela e painéis | [`aula33-bi-aeroporto/`](aula33-bi-aeroporto/) |
 
 O nome `atividade-01-aeroporto` foi mantido porque o enunciado da Aula 02 pedia
 explicitamente esse nome.
@@ -437,4 +438,20 @@ mysql -u root < reset_lab.sql
 php migrate.php up 003_add_aeroporto_origem
 php backfill_origem.php
 php migrate.php up
+```
+
+## Aula 33: BI do aeroporto
+
+Modelo estrela para cinco painéis da direção do aeroporto, num banco separado
+`aeroporto_dw`: `fato_voo` no grão do voo com `dim_tempo`, `dim_rota` e `dim_aeronave`.
+O `etl.sql` carrega do `aeroporto` (dimensões antes da fato) e confere 8 voos e 12
+passageiros contra o OLTP. A companhia aérea do painel 4 não existe no OLTP e está
+registrada como lacuna. Fichas, consultas com a saída real, lacunas e wireframe em
+`aula33-bi-aeroporto/`.
+
+```bash
+cd aula33-bi-aeroporto/banco
+mysql -u root -t < dw.sql
+mysql -u root -t < etl.sql
+mysql -u root -t < consultas_paineis.sql
 ```
